@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_vendor_integration_root" name="Vendor Integration" sequence="60" groups="base.group_system"/>
+    <menuitem id="menu_external_vendor" name="External Vendors" parent="menu_vendor_integration_root" action="action_external_vendor" sequence="10" groups="base.group_system"/>
+    <menuitem id="menu_vendor_api" name="Vendor APIs" parent="menu_vendor_integration_root" action="action_vendor_api" sequence="20" groups="base.group_system"/>
+    <menuitem id="menu_field_mapping" name="Field Mappings" parent="menu_vendor_integration_root" action="action_field_mapping" sequence="30" groups="base.group_system"/>
+    <menuitem id="menu_base_auth" name="Auth Connections" parent="menu_vendor_integration_root" action="base_auth.action_base_auth" groups="base.group_system" sequence="50"/>
+</odoo>

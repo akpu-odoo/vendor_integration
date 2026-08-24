@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_product_supplierinfo_form_inherit_vendor_integration" model="ir.ui.view">
+        <field name="name">product.supplierinfo.form.vendor.integration</field>
+        <field name="model">product.supplierinfo</field>
+        <field name="inherit_id" ref="product.product_supplierinfo_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='vendor']" position="inside">
+                <field name="source_api_id" domain="[('is_api_ready', '=', True)]"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

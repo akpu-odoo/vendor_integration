@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_external_vendor_system,external.vendor.system,model_external_vendor,base.group_system,1,1,1,1
+access_vendor_api_system,vendor.api.system,model_vendor_api,base.group_system,1,1,1,1
+access_field_mapping_system,field.mapping.system,model_field_mapping,base.group_system,1,1,1,1
+access_vendor_integration_record_system,vendor.integration.record.system,model_vendor_integration_record,base.group_system,1,1,1,1

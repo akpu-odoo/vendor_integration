@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_vendor_api_list" model="ir.ui.view">
+        <field name="name">vendor.api.list</field>
+        <field name="model">vendor.api</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="external_vendor_id"/>
+                <field name="api_method"/>
+                <field name="api_url"/>
+                <field name="res_model_id"/>
+                <field name="is_api_ready"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_vendor_api_form" model="ir.ui.view">
+        <field name="name">vendor.api.form</field>
+        <field name="model">vendor.api</field>
+        <field name="arch" type="xml">
+            <form string="Vendor API">
+                <header>
+                    <button name="action_test_api" type="object" string="Test API" class="oe_highlight" icon="fa-plug"/>
+                    <button name="action_sync_now" type="object" string="Sync Now" icon="fa-refresh" invisible="not is_api_ready"/>
+                    <field name="is_api_ready" widget="boolean" string="API Ready" readonly="1"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-warning" role="alert" invisible="is_integration_compatible">
+                        Map every required writable field. One2many and many2many fields are intentionally ignored.
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. Product catalogue"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="external_vendor_id"/>
+                            <field name="res_model_id"/>
+                            <field name="api_method"/>
+                            <field name="integration_type"/>
+                        </group>
+                        <group>
+                            <field name="api_url" placeholder="/products"/>
+                            <field name="resolved_path" placeholder="data.items"/>
+                            <field name="external_key_path" placeholder="id"/>
+                        </group>
+                    </group>
+                    <group string="Synchronization">
+                        <field name="sync_enabled"/>
+                        <field name="sync_interval_hours" invisible="not sync_enabled"/>
+                        <field name="sync_batch_size"/>
+                        <field name="sync_cursor" readonly="1"/>
+                        <field name="next_sync_on"/>
+                    </group>
+                    <group string="Last Test" invisible="not last_tested_on">
+                        <field name="last_tested_on"/>
+                        <field name="last_test_record_count"/>
+                        <field name="last_test_message"/>
+                    </group>
+                    <group string="Last Synchronization" invisible="not last_sync_on">
+                        <field name="last_sync_on"/>
+                        <field name="last_sync_message"/>
+                    </group>
+                    <notebook>
+                        <page string="Field Mappings">
+                            <field name="field_mapping_ids" context="{'default_vendor_api_id': id}">
+                                <list editable="bottom">
+                                    <field name="response_key"/>
+                                    <field name="default_value"/>
+                                    <field name="odoo_field_id" required="1"/>
+                                    <field name="selection_values" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_vendor_api" model="ir.actions.act_window">
+        <field name="name">Vendor APIs</field>
+        <field name="res_model">vendor.api</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

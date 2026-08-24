@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_base_auth,base.auth,model_base_auth,base.group_system,1,1,1,1
+access_base_auth_manager,base_auth_manager,model_base_auth,,1,1,1,1
