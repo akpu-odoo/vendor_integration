@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_product_template_vendor_assets" model="ir.ui.view">
+        <field name="name">product.template.vendor.assets</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view" />
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Vendor Assets" groups="base.group_system">
+                    <field name="vendor_asset_ids" readonly="1">
+                        <list>
+                            <field name="vendor_api_id" />
+                            <field name="name" />
+                            <field name="asset_type" />
+                            <field name="subtype" />
+                            <field name="url" widget="url" />
+                            <field name="highres_url" widget="url" optional="hide" />
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_product_variant_vendor_data" model="ir.ui.view">
+        <field name="name">product.product.vendor.data</field>
+        <field name="model">product.product</field>
+        <field name="inherit_id" ref="product.product_variant_easy_edit_view" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <notebook groups="base.group_system">
+                    <page string="Vendor Stock">
+                        <field name="vendor_stock_ids" readonly="1">
+                            <list>
+                                <field name="vendor_api_id" />
+                                <field name="sku" />
+                                <field name="quantity" />
+                                <field name="first_arrival_date" />
+                                <field name="first_arrival_qty" />
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Vendor Prices">
+                        <field name="vendor_price_ids" readonly="1">
+                            <list>
+                                <field name="vendor_api_id" />
+                                <field name="price" />
+                                <field name="valid_until" />
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Vendor Assets">
+                        <field name="vendor_asset_ids" readonly="1">
+                            <list>
+                                <field name="vendor_api_id" />
+                                <field name="name" />
+                                <field name="asset_type" />
+                                <field name="subtype" />
+                                <field name="url" widget="url" />
+                            </list>
+                        </field>
+                    </page>
+                </notebook>
+            </xpath>
+        </field>
+    </record>
+</odoo>

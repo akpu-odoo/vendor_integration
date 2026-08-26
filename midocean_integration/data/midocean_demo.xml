@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="auth_midocean_demo" model="base.auth">
+        <field name="name">MiDocean Demo Connection</field>
+        <field name="base_url">https://api.midocean.com</field>
+        <field name="auth_type">none</field>
+    </record>
+    <record id="vendor_midocean" model="external.vendor">
+        <field name="name">MiDocean</field>
+        <field name="authentcation_method_id" ref="auth_midocean_demo"/>
+        <field name="base_url">https://api.midocean.com</field>
+    </record>
+    <record id="api_midocean_catalogue" model="vendor.api">
+        <field name="name">MiDocean Catalogue</field><field name="external_vendor_id" ref="vendor_midocean"/>
+        <field name="api_url">/gateway/products/2.0?language=en</field><field name="integration_type">midocean</field><field name="api_purpose">catalogue</field>
+        <field name="res_model_id" ref="product.model_product_template"/><field name="external_key_path">master_id</field>
+    </record>
+    <record id="api_midocean_stock" model="vendor.api">
+        <field name="name">MiDocean Stock</field><field name="external_vendor_id" ref="vendor_midocean"/>
+        <field name="api_url">/gateway/stock/2.0</field><field name="integration_type">midocean</field><field name="api_purpose">stock</field>
+        <field name="res_model_id" ref="model_vendor_product_stock"/><field name="external_key_path">sku</field>
+    </record>
+    <record id="api_midocean_supplier_price" model="vendor.api">
+        <field name="name">MiDocean Supplier Price</field><field name="external_vendor_id" ref="vendor_midocean"/>
+        <field name="api_url">/gateway/pricelist/2.0</field><field name="integration_type">midocean</field><field name="api_purpose">supplier_price</field>
+        <field name="res_model_id" ref="model_vendor_product_price"/><field name="external_key_path">sku</field>
+    </record>
+    <record id="map_catalogue_name" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_catalogue"/><field name="response_key">product_name</field><field name="odoo_field_id" search="[('model', '=', 'product.template'), ('name', '=', 'name')]"/></record>
+    <record id="map_stock_sku" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_stock"/><field name="response_key">sku</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.stock'), ('name', '=', 'sku')]"/></record>
+    <record id="map_stock_qty" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_stock"/><field name="response_key">qty</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.stock'), ('name', '=', 'quantity')]"/></record>
+    <record id="map_stock_arrival_date" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_stock"/><field name="response_key">first_arrival_date</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.stock'), ('name', '=', 'first_arrival_date')]"/></record>
+    <record id="map_stock_arrival_qty" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_stock"/><field name="response_key">first_arrival_qty</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.stock'), ('name', '=', 'first_arrival_qty')]"/></record>
+    <record id="map_price_sku" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_supplier_price"/><field name="response_key">sku</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.price'), ('name', '=', 'sku')]"/></record>
+    <record id="map_price_variant" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_supplier_price"/><field name="response_key">variant_id</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.price'), ('name', '=', 'variant_external_id')]"/></record>
+    <record id="map_price_price" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_supplier_price"/><field name="response_key">price</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.price'), ('name', '=', 'price')]"/></record>
+    <record id="map_price_until" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_supplier_price"/><field name="response_key">valid_until</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.price'), ('name', '=', 'valid_until')]"/></record>
+</odoo>

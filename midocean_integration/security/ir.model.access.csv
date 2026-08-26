@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_vendor_product_asset_system,vendor.product.asset.system,model_vendor_product_asset,base.group_system,1,1,1,1
+access_vendor_product_stock_system,vendor.product.stock.system,model_vendor_product_stock,base.group_system,1,1,1,1
+access_vendor_product_price_system,vendor.product.price.system,model_vendor_product_price,base.group_system,1,1,1,1

@@ -5,14 +5,14 @@
         <field name="model">field.mapping</field>
         <field name="arch" type="xml">
             <list>
-                <field name="vendor_api_id"/>
-                <field name="response_key"/>
-                <field name="default_value"/>
-                <field name="odoo_field_id" required="1"/>
+                <field name="vendor_api_id" />
+                <field name="res_model_id" column_invisible="True" />
+                <field name="response_key" />
+                <field name="odoo_field_id" />
+                <field name="default_value" />
             </list>
         </field>
     </record>
-
     <record id="view_field_mapping_form" model="ir.ui.view">
         <field name="name">field.mapping.form</field>
         <field name="model">field.mapping</field>
@@ -20,18 +20,17 @@
             <form string="Field Mapping">
                 <sheet>
                     <group>
-                        <field name="vendor_api_id"/>
-                        <field name="res_model_id" readonly="1"/>
-                        <field name="odoo_field_id" required="1"/>
-                        <field name="response_key" placeholder="e.g. details.sku"/>
-                        <field name="default_value"/>
-                        <field name="selection_values" placeholder='{"vendor_value": "odoo_value"}'/>
+                        <field name="vendor_api_id" />
+                        <field name="res_model_id" readonly="1" />
+                        <field name="response_key" placeholder="attributes.product_title.en_GB" />
+                        <field name="odoo_field_id" />
+                        <field name="default_value" />
+                        <field name="selection_values" placeholder='{"vendor_value": "odoo_value"}' />
                     </group>
                 </sheet>
             </form>
         </field>
     </record>
-
     <record id="action_field_mapping" model="ir.actions.act_window">
         <field name="name">Field Mappings</field>
         <field name="res_model">field.mapping</field>

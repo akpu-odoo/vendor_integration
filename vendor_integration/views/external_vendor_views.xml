@@ -34,7 +34,7 @@
                                     <field name="api_method"/>
                                     <field name="api_url"/>
                                     <field name="res_model_id"/>
-                                    <field name="is_api_ready" readonly="1"/>
+                                    <field name="api_purpose"/>
                                 </list>
                             </field>
                         </page>
