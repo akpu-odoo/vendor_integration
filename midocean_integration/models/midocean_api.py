@@ -36,6 +36,8 @@ class VendorApi(models.Model):
 
     def _prepare_record_values(self, source, values, record, prepared):
         values = super()._prepare_record_values(source, values, record, prepared)
+        if self.integration_type == 'midocean' and self.api_purpose == 'catalogue' and self.res_model_id.model == 'product.template':
+            values['midocean_vendor_id'] = self.external_vendor_id.id
         if self.integration_type != 'midocean' or self.api_purpose != 'supplier_price' or self.res_model_id.model != 'product.supplierinfo':
             return values
         product = prepared['products'].get(source.get('sku'))
@@ -63,12 +65,27 @@ class VendorApi(models.Model):
                 key = frozenset(attributes[field][1][variant[field]].id for field in attributes if variant.get(field))
                 product = products.get(key)
                 if product:
-                    values = {'default_code': variant.get('sku'), 'barcode': variant.get('gtin') or False}
+                    values = self._midocean_variant_values(variant)
                     if any(product[field] != value for field, value in values.items()):
                         product.write(values)
                     assets.extend((product, variant.get('sku'), item) for item in variant.get('digital_assets', []))
             assets.extend((template, source.get('master_id') or source.get('master_code'), item) for item in source.get('digital_assets', []))
         self._sync_assets(assets)
+
+    @staticmethod
+    def _midocean_variant_values(variant):
+        return {
+            'default_code': variant.get('sku'),
+            'barcode': variant.get('gtin') or False,
+            'midocean_variant_id': variant.get('variant_id'),
+            'midocean_color_code': variant.get('color_code'),
+            'midocean_color_description': variant.get('color_description'),
+            'midocean_color_group': variant.get('color_group'),
+            'midocean_pms_color': variant.get('pms_color'),
+            'midocean_release_date': variant.get('release_date') or False,
+            'midocean_plc_status': variant.get('plc_status'),
+            'midocean_plc_status_description': variant.get('plc_status_description'),
+        }
 
     def _midocean_attributes(self, sources):
         result = {}

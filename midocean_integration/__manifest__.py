@@ -7,7 +7,8 @@
     'data': [
         'security/ir.model.access.csv',
         'data/midocean_demo.xml',
-        # 'views/product_views.xml',
+        'views/product_views.xml',
+        'views/purchase_order_views.xml',
     ],
     'demo': ['data/midocean_demo.xml'],
 }

@@ -46,6 +46,8 @@ class VendorApi(models.Model):
     sync_interval_hours = fields.Integer(default=24, string='Sync Every (Hours)')
     sync_batch_size = fields.Integer(default=1000, string='Batch Size')
     sync_cursor = fields.Integer(default=0, readonly=True)
+    sync_payload = fields.Json(readonly=True, copy=False, string='Pending Sync Payload')
+    sync_total = fields.Integer(readonly=True, copy=False)
     next_sync_on = fields.Datetime(readonly=True)
     last_sync_on = fields.Datetime(readonly=True)
     last_sync_message = fields.Char(readonly=True)
@@ -190,7 +192,10 @@ class VendorApi(models.Model):
             return records, payload
         """
         self.ensure_one()
-        payload = self._get_json()
+        # An API commonly returns its complete catalogue in one response.  Keep
+        # that response while its batches are being consumed: every continuation
+        # then does database work only and cannot drift to a different response.
+        payload = self.sync_payload if self.sync_cursor and self.sync_payload is not False else self._get_json()
         source_records = self._response_records(payload)
         cursor = min(self.sync_cursor, len(source_records))
         batch = source_records[cursor:cursor + self.sync_batch_size]
@@ -198,12 +203,20 @@ class VendorApi(models.Model):
         next_cursor = cursor + len(batch)
         has_more = next_cursor < len(source_records)
         now = fields.Datetime.now()
-        self.write({
+        values = {
             'last_sync_on': now,
             'next_sync_on': now if has_more else now + timedelta(hours=self.sync_interval_hours),
             'sync_cursor': next_cursor if has_more else 0,
             'last_sync_message': self.env._('%(saved)s saved (%(done)s/%(total)s).', saved=len(records), done=next_cursor, total=len(source_records)),
-        })
+        }
+        if has_more:
+            values['sync_total'] = len(source_records)
+            # Do not rewrite a potentially large JSON column for every batch.
+            if not self.sync_payload:
+                values['sync_payload'] = payload
+        else:
+            values.update({'sync_payload': False, 'sync_total': 0})
+        self.write(values)
         return records, payload
 
     def action_test_api(self):
@@ -230,8 +243,9 @@ class VendorApi(models.Model):
     def _cron_sync_due_apis(self):
         now = fields.Datetime.now()
         api = self.search([
-            ('active', '=', True), '|', ('sync_cursor', '>', 0), '&', ('sync_enabled', '=', True),
-            '|', ('next_sync_on', '=', False), ('next_sync_on', '<=', now),
+            ('active', '=', True), '|',
+            '&', ('sync_cursor', '>', 0), '|', ('next_sync_on', '=', False), ('next_sync_on', '<=', now),
+            '&', ('sync_enabled', '=', True), '|', ('next_sync_on', '=', False), ('next_sync_on', '<=', now),
         ], limit=1)
         if not api:
             return

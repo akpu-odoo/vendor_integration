@@ -6,6 +6,38 @@
         <field name="inherit_id" ref="product.product_template_only_form_view" />
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
+                <page string="MiDocean" groups="base.group_system">
+                    <group>
+                        <group string="Identity">
+                            <field name="midocean_vendor_id"/>
+                            <field name="midocean_master_id"/>
+                            <field name="midocean_master_code"/>
+                            <field name="midocean_brand"/>
+                            <field name="midocean_type_of_products"/>
+                            <field name="midocean_commodity_code"/>
+                            <field name="midocean_country_of_origin"/>
+                            <field name="midocean_printable"/>
+                        </group>
+                        <group string="Product">
+                            <field name="midocean_category_code"/>
+                            <field name="midocean_product_class"/>
+                            <field name="midocean_material"/>
+                            <field name="midocean_packaging_after_printing"/>
+                            <field name="midocean_dimensions"/>
+                            <field name="midocean_print_positions"/>
+                            <field name="midocean_source_timestamp"/>
+                        </group>
+                    </group>
+                    <group string="Measurements" col="4">
+                        <field name="midocean_length"/><field name="midocean_width"/>
+                        <field name="midocean_height"/><field name="midocean_diameter"/>
+                        <field name="midocean_volume"/><field name="midocean_gross_weight"/>
+                        <field name="midocean_net_weight"/><field name="midocean_inner_carton_quantity"/>
+                        <field name="midocean_outer_carton_quantity"/><field name="midocean_carton_length"/>
+                        <field name="midocean_carton_width"/><field name="midocean_carton_height"/>
+                        <field name="midocean_carton_volume"/><field name="midocean_carton_gross_weight"/>
+                    </group>
+                </page>
                 <page string="Vendor Assets" groups="base.group_system">
                     <field name="vendor_asset_ids" readonly="1">
                         <list>
@@ -38,6 +70,22 @@
                                 <field name="first_arrival_qty" />
                             </list>
                         </field>
+                    </page>
+                    <page string="MiDocean" invisible="not midocean_variant_id">
+                        <group>
+                            <group>
+                                <field name="midocean_variant_id"/>
+                                <field name="midocean_color_code"/>
+                                <field name="midocean_color_description"/>
+                                <field name="midocean_color_group"/>
+                            </group>
+                            <group>
+                                <field name="midocean_pms_color"/>
+                                <field name="midocean_release_date"/>
+                                <field name="midocean_plc_status"/>
+                                <field name="midocean_plc_status_description"/>
+                            </group>
+                        </group>
                     </page>
                     <page string="Vendor Assets">
                         <field name="vendor_asset_ids" readonly="1">

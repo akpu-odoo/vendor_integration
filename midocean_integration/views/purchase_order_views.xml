@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="purchase_order_form_midocean" model="ir.ui.view">
+        <field name="name">purchase.order.form.midocean</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_midocean_create_order" type="object" string="Send to MiDocean" invisible="not midocean_vendor_id or midocean_order_number"/>
+                <button name="action_midocean_refresh_order" type="object" string="Refresh MiDocean" invisible="not midocean_order_number"/>
+            </xpath>
+            <xpath expr="//field[@name='partner_id']" position="after"><field name="midocean_vendor_id" invisible="1"/></xpath>
+            <xpath expr="//field[@name='product_id']" position="attributes"><attribute name="context">{'partner_id': parent.partner_id, 'quantity': product_qty, 'company_id': parent.company_id, 'midocean_vendor_filter_id': parent.midocean_vendor_id}</attribute></xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="MiDocean" invisible="not midocean_vendor_id">
+                    <group><group><field name="midocean_order_type"/><field name="midocean_order_number"/><field name="midocean_proof_line_id"/></group><group><field name="midocean_rejection_code"/><field name="midocean_rejection_comment"/><field name="midocean_last_error" readonly="1"/></group></group>
+                    <group><button name="action_midocean_approve_proof" type="object" string="Approve Proof" class="btn-secondary"/><button name="action_midocean_reject_proof" type="object" string="Reject Proof" class="btn-secondary"/></group>
+                    <field name="midocean_response" readonly="1"/>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
