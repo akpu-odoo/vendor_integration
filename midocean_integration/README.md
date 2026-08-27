@@ -13,9 +13,11 @@ authentication connection with MiDocean's real credentials and endpoints.
 | --- | --- | --- |
 | Catalogue | `product.template` | `master_id` |
 | Stock | `vendor.product.stock` | `sku` |
-| Supplier Price | `vendor.product.price` | `sku` |
+| Supplier Price | `product.supplierinfo` | `sku` |
 
-The demo includes the required stock and price mappings. Add catalogue field
+The supplier-price importer resolves the variant by SKU and injects the External
+Vendor's `res.partner` into `product.supplierinfo`; map only price and validity
+dates in the UI. Add catalogue field
 mappings in the UI as needed, for example `product_name` → `name`,
 `long_description` → `description_sale`, and weight/dimension fields supported
 by your installed Odoo modules.

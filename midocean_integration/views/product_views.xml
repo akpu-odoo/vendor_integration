@@ -39,15 +39,6 @@
                             </list>
                         </field>
                     </page>
-                    <page string="Vendor Prices">
-                        <field name="vendor_price_ids" readonly="1">
-                            <list>
-                                <field name="vendor_api_id" />
-                                <field name="price" />
-                                <field name="valid_until" />
-                            </list>
-                        </field>
-                    </page>
                     <page string="Vendor Assets">
                         <field name="vendor_asset_ids" readonly="1">
                             <list>

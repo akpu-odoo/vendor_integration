@@ -115,10 +115,28 @@ class VendorApi(models.Model):
             values[mapping.field_name] = value
         return values
 
+    def _before_create_records(self, source_records):
+        """Return optional batch state used by ``_create_values_from_json``.
+
+        Integration modules can use this to prepare related records once per
+        batch, then enrich the values of new records without changing the
+        generic create/update flow.
+        """
+        return None
+
+    def _create_values_from_json(self, data, prepared):
+        """Return extra values only for records that do not exist yet."""
+        return {}
+
+    def _prepare_record_values(self, data, values, record, prepared):
+        """Return final values, or ``False`` to skip an invalid source record."""
+        return values
+
     def _create_records(self, payload, source_records=None):
         """Create/update records and return the resulting recordset."""
         self.ensure_one()
         source_records = source_records if source_records is not None else self._response_records(payload)
+        prepared = self._before_create_records(source_records)
         model = self.env[self.res_model_id.model]
         keys = [self._json_value(data, self.external_key_path) for data in source_records]
         if any(key in (None, '') for key in keys):
@@ -136,6 +154,11 @@ class VendorApi(models.Model):
         for source, key in zip(source_records, keys):
             record = records_by_id.get(links_by_key[key].res_id, model.browse()) if key in links_by_key else model.browse()
             values = self._values_from_json(source)
+            if not record:
+                values.update(self._create_values_from_json(source, prepared))
+            values = self._prepare_record_values(source, values, record, prepared)
+            if values is False:
+                continue
             items.append((key, record, values))
             if not record:
                 create_values.append(values)
