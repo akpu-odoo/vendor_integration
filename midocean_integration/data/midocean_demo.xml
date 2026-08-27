@@ -13,7 +13,7 @@
     <record id="api_midocean_catalogue" model="vendor.api">
         <field name="name">MiDocean Catalogue</field><field name="external_vendor_id" ref="vendor_midocean"/>
         <field name="api_url">/gateway/products/2.0?language=en</field><field name="integration_type">midocean</field><field name="api_purpose">catalogue</field>
-        <field name="res_model_id" ref="product.model_product_template"/><field name="resolved_path">value.data.items</field><field name="external_key_path">master_id</field><field name="sync_batch_size">100</field>
+        <field name="res_model_id" ref="product.model_product_template"/><field name="resolved_path"></field><field name="external_key_path">master_id</field><field name="sync_batch_size">100</field>
     </record>
     <record id="api_midocean_stock" model="vendor.api">
         <field name="name">MiDocean Stock</field><field name="external_vendor_id" ref="vendor_midocean"/>
@@ -54,7 +54,6 @@
     <record id="map_catalogue_carton_volume" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_catalogue"/><field name="response_key">carton_volume</field><field name="odoo_field_id" search="[('model', '=', 'product.template'), ('name', '=', 'midocean_carton_volume')]"/></record>
     <record id="map_catalogue_carton_gross_weight" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_catalogue"/><field name="response_key">carton_gross_weight</field><field name="odoo_field_id" search="[('model', '=', 'product.template'), ('name', '=', 'midocean_carton_gross_weight')]"/></record>
     <record id="map_catalogue_packaging" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_catalogue"/><field name="response_key">packaging_after_printing</field><field name="odoo_field_id" search="[('model', '=', 'product.template'), ('name', '=', 'midocean_packaging_after_printing')]"/></record>
-    <record id="map_catalogue_timestamp" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_catalogue"/><field name="response_key">timestamp</field><field name="odoo_field_id" search="[('model', '=', 'product.template'), ('name', '=', 'midocean_source_timestamp')]"/></record>
     <record id="map_stock_sku" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_stock"/><field name="response_key">sku</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.stock'), ('name', '=', 'sku')]"/></record>
     <record id="map_stock_qty" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_stock"/><field name="response_key">qty</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.stock'), ('name', '=', 'quantity')]"/></record>
     <record id="map_stock_arrival_date" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_stock"/><field name="response_key">first_arrival_date</field><field name="odoo_field_id" search="[('model', '=', 'vendor.product.stock'), ('name', '=', 'first_arrival_date')]"/></record>
