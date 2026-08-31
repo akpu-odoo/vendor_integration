@@ -25,6 +25,7 @@
                     <group>
                         <field name="authentcation_method_id"/>
                         <field name="base_url" placeholder="https://api.example.com"/>
+                        <field name="currency_id" />
                     </group>
                     <notebook>
                         <page string="APIs">

@@ -47,7 +47,7 @@ class VendorApi(models.Model):
     sync_batch_size = fields.Integer(default=1000, string='Batch Size')
     sync_cursor = fields.Integer(default=0, readonly=True)
     sync_payload = fields.Json(readonly=True, copy=False, string='Pending Sync Payload')
-    next_sync_on = fields.Datetime(readonly=True)
+    next_sync_on = fields.Datetime()
     last_sync_on = fields.Datetime(readonly=True)
     last_sync_message = fields.Char(readonly=True)
     last_test_message = fields.Char(readonly=True)
@@ -271,22 +271,33 @@ class VendorApi(models.Model):
 
     @api.model
     def _cron_sync_due_apis(self):
-        """Run one due API batch and queue its next pending batch."""
+        """Run a batch for every API that is due.
+
+        Each endpoint has its own interval, so a cron invocation must not stop
+        after the first matching API.  In particular, manually triggering the
+        cron should evaluate product, stock and price endpoints independently.
+        A large response is still processed one batch at a time; a follow-up
+        cron is queued when at least one endpoint has more records to process.
+        """
         now = fields.Datetime.now()
-        api = self.search([
-            ('active', '=', True), '|',
-            '&', ('sync_cursor', '>', 0), '|', ('next_sync_on', '=', False), ('next_sync_on', '<=', now),
-            '&', ('sync_enabled', '=', True), '|', ('next_sync_on', '=', False), ('next_sync_on', '<=', now),
-        ], limit=1)
-        if not api:
-            return
-        try:
-            api._sync()
-            if api.sync_cursor:
-                self.env.ref('vendor_integration.ir_cron_vendor_api_sync')._trigger()
-        except Exception:
-            _logger.exception('Vendor API sync failed for %s', api.display_name)
-            api.write({'next_sync_on': now + timedelta(hours=api.sync_interval_hours)})
+        due_apis = self.search([
+            ('active', '=', True),
+            '|', ('sync_cursor', '>', 0), ('sync_enabled', '=', True),
+            '|', ('next_sync_on', '=', False), ('next_sync_on', '<=', now),
+        ])
+        has_pending_batches = False
+        for api in due_apis:
+            try:
+                api._sync()
+                has_pending_batches |= bool(api.sync_cursor)
+            except Exception:
+                # One unavailable endpoint must not prevent the other due APIs
+                # from being synchronized during this cron invocation.
+                _logger.exception('Vendor API sync failed for %s', api.display_name)
+                api.write({'next_sync_on': now + timedelta(hours=api.sync_interval_hours)})
+
+        if has_pending_batches:
+            self.env.ref('vendor_integration.ir_cron_vendor_api_sync')._trigger()
 
     def _notification(self, success, message):
         """Build a standard Odoo notification action."""

@@ -73,6 +73,7 @@ class VendorApi(models.Model):
             'product_id': product.id,
             'product_tmpl_id': product.product_tmpl_id.id,
             'product_code': source.get('sku'),
+            'currency_id': self.external_vendor_id.currency_id.id or self.env.ref("base.EUR").id,
         })
         return values
 

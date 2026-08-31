@@ -13,6 +13,7 @@ class ExternalVendor(models.Model):
     )
     base_url = fields.Char(required=True)
     vendor_api_ids = fields.One2many('vendor.api', 'external_vendor_id')
+    currency_id = fields.Many2one(related='partner_id.property_purchase_currency_id', readonly=False)
 
 
     @api.model_create_multi
