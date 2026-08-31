@@ -1,7 +1,11 @@
 {
     'name': 'MiDocean Integration',
     'version': '19.0.1.0.0',
-    'summary': 'MiDocean catalogue, stock and supplier-price processing',
+    'summary': 'Synchronize MiDocean products, stock, prices, and purchase orders',
+    'description': """
+        Extends the generic vendor integration with MiDocean catalogue variants,
+        assets, stock, supplier prices, and purchase order exchange.
+    """,
     'license': 'LGPL-3',
     'depends': ['vendor_integration'],
     'data': [

@@ -1,18 +1,15 @@
 {
     "name": "Multiple Vendor Integration",
     "version": "19.0.1.0.0",
-    "summary": "Module provides feasibility to integrate multiple vendors",
+    "summary": "Configure and synchronize external vendor APIs",
     "description": """
-        Vendor Integration - 6451862
-        =========================================
-        This module allows users to create records for integrating multiple vendors.
+        Configure external vendors, API endpoints, field mappings, and scheduled
+        synchronization into any Odoo model.
     """,
     "category": "Custom",
-    # Author
     "author": "Odoo PS",
     "website": "https://www.odoo.com",
     "license": "LGPL-3",
-    # Dependency
     "depends": ["base_auth", "purchase"],
     "data": [
         "security/ir.model.access.csv",

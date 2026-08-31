@@ -30,7 +30,7 @@ class VendorApi(models.Model):
         ('catalogue', 'Catalogue'), ('stock', 'Stock'),
         ('supplier_price', 'Supplier Price'), ('generic', 'Generic'),
     ], default='generic', required=True, string='Purpose')
-    res_model_id = fields.Many2one('ir.model',  string='Save Records In')
+    res_model_id = fields.Many2one('ir.model', string='Save Records In')
     resolved_path = fields.Char(
         string='Records Path',
         help='Path to the records, e.g. "value" or "data.items". Leave empty for a root list or object.',
@@ -47,7 +47,6 @@ class VendorApi(models.Model):
     sync_batch_size = fields.Integer(default=1000, string='Batch Size')
     sync_cursor = fields.Integer(default=0, readonly=True)
     sync_payload = fields.Json(readonly=True, copy=False, string='Pending Sync Payload')
-    sync_total = fields.Integer(readonly=True, copy=False)
     next_sync_on = fields.Datetime(readonly=True)
     last_sync_on = fields.Datetime(readonly=True)
     last_sync_message = fields.Char(readonly=True)
@@ -56,25 +55,33 @@ class VendorApi(models.Model):
 
     @api.constrains('sync_interval_hours', 'sync_batch_size')
     def _check_interval(self):
+        """Keep scheduled runs and batch processing valid."""
         for api in self:
             if api.sync_interval_hours <= 0 or api.sync_batch_size <= 0:
                 raise ValidationError(self.env._('Sync interval and batch size must be greater than zero.'))
 
     def _endpoint_url(self):
+        """Return the absolute endpoint URL for this API."""
         self.ensure_one()
         if not self.external_vendor_id.base_url:
             raise UserError(self.env._('Set the vendor base URL.'))
         return urljoin(self.external_vendor_id.base_url.rstrip('/') + '/', self.api_url.lstrip('/'))
 
     def _get_json(self):
+        """Request and return the decoded JSON response.
+
+        :raises UserError: when the configured authentication request fails.
+        """
         self.ensure_one()
         response = self.external_vendor_id.authentcation_method_id.request(self.api_method, self._endpoint_url())
         if not response.success:
-            raise UserError('; '.join(error.message for error in response.errors) or self.env._('The API request failed.'))
+            message = '; '.join(error.message for error in response.errors)
+            raise UserError(message or self.env._('The API request failed.'))
         return response.data
 
     @api.model
     def _json_value(self, data, path, default=None):
+        """Read a dotted path from a JSON dictionary."""
         for key in (path or '').split('.'):
             if key:
                 if not isinstance(data, dict) or key not in data:
@@ -83,7 +90,7 @@ class VendorApi(models.Model):
         return data
 
     def _response_records(self, payload):
-        """Accept ordinary lists, one object, and dictionaries keyed by SKU."""
+        """Return source objects from a response list, object, or keyed object."""
         self.ensure_one()
         data = self._json_value(payload, self.resolved_path, payload)
         if isinstance(data, dict):
@@ -96,7 +103,7 @@ class VendorApi(models.Model):
         return records
 
     def _values_from_json(self, data):
-        """Map simple scalar values only; complex values are post-processing."""
+        """Map simple scalar values; integration code handles complex values."""
         self.ensure_one()
         model = self.env[self.res_model_id.model]
         values = {}
@@ -113,7 +120,12 @@ class VendorApi(models.Model):
                 elif field.type == 'boolean' and isinstance(value, str):
                     value = value.lower() in ('1', 'true', 'yes')
             except (TypeError, ValueError) as error:
-                raise UserError(self.env._('Cannot convert %(key)s to %(field)s: %(error)s', key=mapping.response_key, field=field.string, error=error))
+                raise UserError(self.env._(
+                    'Cannot convert %(key)s to %(field)s: %(error)s',
+                    key=mapping.response_key,
+                    field=field.string,
+                    error=error,
+                ))
             values[mapping.field_name] = value
         return values
 
@@ -135,17 +147,28 @@ class VendorApi(models.Model):
         return values
 
     def _create_records(self, payload, source_records=None):
-        """Create/update records and return the resulting recordset."""
+        """Create or update the batch and return its target records.
+
+        Args:
+            payload: Complete decoded API response.
+            source_records: Optional source records to process.
+        """
         self.ensure_one()
         source_records = source_records if source_records is not None else self._response_records(payload)
         prepared = self._before_create_records(source_records)
         model = self.env[self.res_model_id.model]
         keys = [self._json_value(data, self.external_key_path) for data in source_records]
         if any(key in (None, '') for key in keys):
-            raise UserError(self.env._('External Key "%(key)s" is missing from one or more records.', key=self.external_key_path))
+            raise UserError(self.env._(
+                'External Key "%(key)s" is missing from one or more records.',
+                key=self.external_key_path,
+            ))
         keys = [str(key) for key in keys]
         if len(keys) != len(set(keys)):
-            raise UserError(self.env._('External Key "%(key)s" must be unique in each response.', key=self.external_key_path))
+            raise UserError(self.env._(
+                'External Key "%(key)s" must be unique in each response.',
+                key=self.external_key_path,
+            ))
         links = self.env['vendor.integration.record'].search([
             ('vendor_api_id', '=', self.id), ('res_model_id', '=', self.res_model_id.id), ('external_id', 'in', keys),
         ])
@@ -154,7 +177,8 @@ class VendorApi(models.Model):
         records_by_id = {record.id: record for record in linked_records}
         items, create_values = [], []
         for source, key in zip(source_records, keys):
-            record = records_by_id.get(links_by_key[key].res_id, model.browse()) if key in links_by_key else model.browse()
+            link = links_by_key.get(key)
+            record = records_by_id.get(link.res_id, model.browse()) if link else model.browse()
             values = self._values_from_json(source)
             if not record:
                 values.update(self._create_values_from_json(source, prepared))
@@ -207,19 +231,24 @@ class VendorApi(models.Model):
             'last_sync_on': now,
             'next_sync_on': now if has_more else now + timedelta(hours=self.sync_interval_hours),
             'sync_cursor': next_cursor if has_more else 0,
-            'last_sync_message': self.env._('%(saved)s saved (%(done)s/%(total)s).', saved=len(records), done=next_cursor, total=len(source_records)),
+            'last_sync_message': self.env._(
+                '%(saved)s saved (%(done)s/%(total)s).',
+                saved=len(records),
+                done=next_cursor,
+                total=len(source_records),
+            ),
         }
         if has_more:
-            values['sync_total'] = len(source_records)
             # Do not rewrite a potentially large JSON column for every batch.
             if not self.sync_payload:
                 values['sync_payload'] = payload
         else:
-            values.update({'sync_payload': False, 'sync_total': 0})
+            values['sync_payload'] = False
         self.write(values)
         return records, payload
 
     def action_test_api(self):
+        """Test the endpoint and store a concise result for the user."""
         self.ensure_one()
         try:
             message, success = self.env._('%s record(s) found.', len(self._response_records(self._get_json()))), True
@@ -229,6 +258,7 @@ class VendorApi(models.Model):
         return self._notification(success, message)
 
     def action_sync_now(self):
+        """Synchronize one batch and schedule a continuation when needed."""
         self.ensure_one()
         try:
             self._sync()
@@ -241,6 +271,7 @@ class VendorApi(models.Model):
 
     @api.model
     def _cron_sync_due_apis(self):
+        """Run one due API batch and queue its next pending batch."""
         now = fields.Datetime.now()
         api = self.search([
             ('active', '=', True), '|',
@@ -258,6 +289,7 @@ class VendorApi(models.Model):
             api.write({'next_sync_on': now + timedelta(hours=api.sync_interval_hours)})
 
     def _notification(self, success, message):
+        """Build a standard Odoo notification action."""
         return {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
             'title': self.env._('Done') if success else self.env._('Failed'),
             'message': message, 'type': 'success' if success else 'danger', 'sticky': not success,

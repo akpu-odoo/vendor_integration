@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_partner_form_inherit_vendor_integration" model="ir.ui.view">
+    <record id="view_form_res_partner_inherit_vendor_integration" model="ir.ui.view">
         <field name="name">res.partner.form.vendor.integration</field>
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>

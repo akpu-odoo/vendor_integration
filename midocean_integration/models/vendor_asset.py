@@ -16,4 +16,7 @@ class VendorProductAsset(models.Model):
     asset_type = fields.Char()
     subtype = fields.Char()
 
-    _asset_key_unique = models.Constraint('unique(vendor_api_id, asset_key)', 'A vendor asset can only be stored once per API.')
+    _asset_key_unique = models.Constraint(
+        'unique(vendor_api_id, asset_key)',
+        'A vendor asset can only be stored once per API.',
+    )

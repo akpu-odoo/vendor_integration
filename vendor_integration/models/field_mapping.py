@@ -10,11 +10,22 @@ class FieldMapping(models.Model):
 
     vendor_api_id = fields.Many2one('vendor.api', required=True, ondelete='cascade')
     res_model_id = fields.Many2one(related='vendor_api_id.res_model_id', store=True, readonly=True)
-    response_key = fields.Char(required=True, string='JSON Key', help='Dotted paths are supported, e.g. attributes.product_title.en_GB.')
-    odoo_field_id = fields.Many2one('ir.model.fields', string='Odoo Field', domain="[('model_id', '=', res_model_id), ('ttype', 'not in', ('one2many', 'many2many'))]")
+    response_key = fields.Char(
+        required=True,
+        string='JSON Key',
+        help='Dotted paths are supported, e.g. attributes.product_title.en_GB.',
+    )
+    odoo_field_id = fields.Many2one(
+        'ir.model.fields',
+        string='Odoo Field',
+        domain="[('model_id', '=', res_model_id), ('ttype', 'not in', ('one2many', 'many2many'))]",
+    )
     field_name = fields.Char(related='odoo_field_id.name')
     default_value = fields.Char(help='Used only when the JSON key is absent.')
-    selection_values = fields.Text(string='Selection Value Map', help='Optional JSON map, e.g. {"yes": "available"}.')
+    selection_values = fields.Text(
+        string='Selection Value Map',
+        help='Optional JSON map, e.g. {"yes": "available"}.',
+    )
 
     @api.constrains('selection_values')
     def _check_selection_values(self):
@@ -26,6 +37,10 @@ class FieldMapping(models.Model):
                 raise ValidationError(self.env._('Selection Value Map must be a JSON object.'))
 
     def get_value(self, source):
+        """Return this mapping's value from a source JSON object.
+
+        ``default_value`` is used only when the configured key is absent.
+        """
         self.ensure_one()
         missing = object()
         value = self.vendor_api_id._json_value(source, self.response_key, missing)

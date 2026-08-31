@@ -4,8 +4,8 @@ from odoo import api, fields, models
 class ProductProduct(models.Model):
     _inherit = 'product.product'
 
-    vendor_stock_ids = fields.One2many('vendor.product.stock', 'product_id', string='Vendor Stock')
-    vendor_asset_ids = fields.One2many('vendor.product.asset', 'product_id', string='Vendor Assets')
+    vendor_stock_ids = fields.One2many('vendor.product.stock', 'product_id')
+    vendor_asset_ids = fields.One2many('vendor.product.asset', 'product_id')
     midocean_vendor_id = fields.Many2one(related='product_tmpl_id.midocean_vendor_id', store=True, index=True)
     midocean_variant_id = fields.Char(index=True)
     midocean_color_code = fields.Char()
@@ -18,6 +18,7 @@ class ProductProduct(models.Model):
 
     @api.model
     def _search(self, domain, *args, **kwargs):
+        """Restrict product lookup only when a MiDocean vendor is in context."""
         vendor_id = self.env.context.get('midocean_vendor_filter_id')
         if vendor_id:
             domain = [('midocean_vendor_id', '=', vendor_id)] + list(domain)
@@ -27,8 +28,8 @@ class ProductProduct(models.Model):
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
-    vendor_asset_ids = fields.One2many('vendor.product.asset', 'product_tmpl_id', string='Vendor Assets')
-    midocean_vendor_id = fields.Many2one('external.vendor', index=True, string='MiDocean Vendor')
+    vendor_asset_ids = fields.One2many('vendor.product.asset', 'product_tmpl_id')
+    midocean_vendor_id = fields.Many2one('external.vendor', index=True)
     midocean_master_id = fields.Char(index=True)
     midocean_master_code = fields.Char(index=True)
     midocean_type_of_products = fields.Char()
@@ -63,4 +64,7 @@ class ProductSupplierinfo(models.Model):
     _inherit = 'product.supplierinfo'
 
     vendor_api_id = fields.Many2one('vendor.api', ondelete='cascade', index=True)
-    _vendor_product_unique = models.Constraint('unique(vendor_api_id, product_id)', 'A vendor API can only have one supplier price per product.')
+    _vendor_product_unique = models.Constraint(
+        'unique(vendor_api_id, product_id)',
+        'A vendor API can only have one supplier price per product.',
+    )

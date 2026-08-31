@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_field_mapping_list" model="ir.ui.view">
+    <record id="view_list_field_mapping" model="ir.ui.view">
         <field name="name">field.mapping.list</field>
         <field name="model">field.mapping</field>
         <field name="arch" type="xml">
@@ -13,7 +13,7 @@
             </list>
         </field>
     </record>
-    <record id="view_field_mapping_form" model="ir.ui.view">
+    <record id="view_form_field_mapping" model="ir.ui.view">
         <field name="name">field.mapping.form</field>
         <field name="model">field.mapping</field>
         <field name="arch" type="xml">

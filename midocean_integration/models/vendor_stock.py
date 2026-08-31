@@ -13,4 +13,7 @@ class VendorProductStock(models.Model):
     first_arrival_date = fields.Date()
     first_arrival_qty = fields.Integer()
 
-    _stock_unique = models.Constraint('unique(vendor_api_id, sku)', 'A SKU can only have one stock record per API.')
+    _stock_unique = models.Constraint(
+        'unique(vendor_api_id, sku)',
+        'A SKU can only have one stock record per API.',
+    )
