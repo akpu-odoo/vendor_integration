@@ -47,6 +47,7 @@ class MidoceanPrintPosition(models.Model):
     _rec_name = 'position_id'
 
     print_product_id = fields.Many2one('midocean.print.product', required=True, ondelete='cascade', index=True)
+    active = fields.Boolean(default=True)
     position_id = fields.Char(required=True)
     print_size_unit = fields.Char()
     max_print_size_height = fields.Float()
@@ -69,6 +70,7 @@ class MidoceanPrintPositionTechnique(models.Model):
     _rec_name = 'technique_id'
 
     position_id = fields.Many2one('midocean.print.position', required=True, ondelete='cascade', index=True)
+    active = fields.Boolean(default=True)
     technique_id = fields.Many2one('midocean.print.technique', required=True, ondelete='cascade', index=True)
     is_default = fields.Boolean()
     max_colours = fields.Integer()
@@ -83,6 +85,7 @@ class MidoceanPrintPositionImage(models.Model):
     _description = 'MiDocean Print Position Image'
 
     position_id = fields.Many2one('midocean.print.position', required=True, ondelete='cascade', index=True)
+    active = fields.Boolean(default=True)
     variant_color = fields.Char(index=True)
     blank_url = fields.Char(string='Blank Image URL')
     with_area_url = fields.Char(string='Image with Print Area URL')

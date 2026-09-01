@@ -26,6 +26,11 @@ Large responses are processed in batches of 1,000 records by default. Change
 the next cron batch automatically, so one request never needs to process the
 complete catalogue.
 
+The base module also provides reusable `vendor.product.stock` and
+`vendor.product.asset` models. Vendor modules may link their imported stock,
+SKU, image, or document data to standard Odoo products without defining those
+technical storage models again.
+
 ## MiDocean and Araco payloads
 
 Root lists, one root object, and dictionaries keyed by SKU are detected
@@ -35,10 +40,11 @@ payload, use Records Path `value` and External Key `identifier`.
 
 ## Custom post-processing
 
-Override `_sync()` in your vendor-specific module. The generic parent creates
-or updates basic records and returns the saved recordset plus the original JSON
-payload. `_response_records(payload)` returns the source objects in exactly the
-same order as the returned recordset.
+Override `_sync()` in your vendor-specific module when an otherwise tabular
+endpoint needs post-processing. The generic parent creates or updates basic
+records and returns the saved recordset plus the original JSON payload.
+`_response_records(payload)` returns the source objects in exactly the same
+order as the returned recordset.
 
 ```python
 from odoo import models
@@ -60,6 +66,11 @@ class VendorApi(models.Model):
 Use the same pattern for stock: configure the stock API to save its raw/basic
 record to the model you choose, then write the SKU-to-product and stock update
 logic after `super()`.
+
+For an endpoint with multiple root collections or deeply nested structures,
+override `_sync_custom_payload()`. Return `None` to use the normal batch
+importer, or return `(records, payload)` after the vendor-specific import is
+complete. MiDocean print data uses this hook.
 
 ## MiDocean configuration
 

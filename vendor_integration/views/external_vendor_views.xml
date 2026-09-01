@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <list>
                 <field name="name"/>
-                <field name="authentcation_method_id"/>
+                <field name="authentication_method_id"/>
                 <field name="base_url"/>
             </list>
         </field>
@@ -23,7 +23,7 @@
                         <h1><field name="name" placeholder="e.g. Acme Supplies"/></h1>
                     </div>
                     <group>
-                        <field name="authentcation_method_id"/>
+                        <field name="authentication_method_id"/>
                         <field name="base_url" placeholder="https://api.example.com"/>
                         <field name="currency_id" />
                     </group>

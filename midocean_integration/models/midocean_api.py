@@ -15,7 +15,12 @@ class VendorApi(models.Model):
             self.res_model_id = self.env['ir.model']._get('product.supplierinfo').id
         cursor = self.sync_cursor
         records, payload = super()._sync()
-        if self.integration_type == 'midocean':
+        if (
+            self.integration_type == 'midocean'
+            and self.api_purpose not in ('print_data', 'print_pricelist')
+        ):
+            # Nested print endpoints are fully handled by the generic custom
+            # payload hook and do not have a one-to-one record/source batch.
             sources = self._response_records(payload)
             sources = sources[min(cursor, len(sources)): cursor + len(records)]
             getattr(self, '_sync_midocean_%s' % self.api_purpose, lambda *_: None)(records, sources)

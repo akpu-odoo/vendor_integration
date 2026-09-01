@@ -10,7 +10,7 @@ _logger = logging.getLogger(__name__)
 
 
 class VendorApi(models.Model):
-    """Small API importer; vendor-specific processing belongs in an override."""
+    """Configurable API importer with extension hooks for vendor modules."""
 
     _name = 'vendor.api'
     _description = 'Vendor API'
@@ -74,7 +74,9 @@ class VendorApi(models.Model):
         :raises UserError: when the configured authentication request fails.
         """
         self.ensure_one()
-        response = self.external_vendor_id.authentcation_method_id.request(self.api_method, self._endpoint_url())
+        response = self.external_vendor_id.authentication_method_id.request(
+            self.api_method, self._endpoint_url(),
+        )
         if not response.success:
             message = '; '.join(error.message for error in response.errors)
             raise UserError(message or self.env._('The API request failed.'))
@@ -205,6 +207,15 @@ class VendorApi(models.Model):
             self.env['vendor.integration.record'].create(link_values)
         return model.browse(record_ids)
 
+    def _sync_custom_payload(self):
+        """Optionally handle an endpoint that cannot use the tabular importer.
+
+        Return ``None`` to use the standard record importer.  Vendor modules
+        should return the same ``(records, payload)`` tuple as ``_sync`` when
+        they handle an endpoint with multiple root collections or nested data.
+        """
+        return None
+
     def _sync(self):
         """Override and call ``super()`` to add vendor-specific post-processing.
 
@@ -217,6 +228,9 @@ class VendorApi(models.Model):
             return records, payload
         """
         self.ensure_one()
+        custom_result = self._sync_custom_payload()
+        if custom_result is not None:
+            return custom_result
         # An API commonly returns its complete catalogue in one response.  Keep
         # that response while its batches are being consumed: every continuation
         # then does database work only and cannot drift to a different response.

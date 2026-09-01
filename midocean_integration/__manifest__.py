@@ -1,6 +1,6 @@
 {
     'name': 'MiDocean Integration',
-    'version': '19.0.1.0.1',
+    'version': '19.0.1.0.4',
     'author': 'Odoo PS',
     'summary': 'Synchronize MiDocean products, stock, prices, and purchase orders',
     'description': """

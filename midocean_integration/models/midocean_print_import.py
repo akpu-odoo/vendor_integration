@@ -16,13 +16,17 @@ class VendorApi(models.Model):
             return payload.get('print_techniques', [])
         return super()._response_records(payload)
 
-    def _sync(self):
-        if self.integration_type == 'midocean' and self.api_purpose in ('print_data', 'print_pricelist'):
+    def _sync_custom_payload(self):
+        """Handle MiDocean's nested print endpoints through the base hook."""
+        if (
+            self.integration_type == 'midocean'
+            and self.api_purpose in ('print_data', 'print_pricelist')
+        ):
             return self._sync_midocean_print_payload()
-        return super()._sync()
+        return super()._sync_custom_payload()
 
     @staticmethod
-    def _number(value):
+    def _parse_number(value):
         """Parse MiDocean's decimal-comma and thousands-separated numbers."""
         if value in (None, ''):
             return 0.0
@@ -75,19 +79,19 @@ class VendorApi(models.Model):
         templates_by_code = {template.midocean_master_code: template for template in templates}
         create_values = []
         for code, source in product_sources.items():
-            values = self._midocean_print_product_values(source, vendor_id, templates_by_code.get(code))
+            values = self._midocean_print_product_values(
+                source, vendor_id, templates_by_code.get(code),
+            )
             if code in products_by_code:
                 products_by_code[code].write(values)
             else:
                 create_values.append(values)
-        created = product_model.create(create_values)
+        created = product_model.create(create_values) if create_values else product_model
         products_by_code.update({product.master_code: product for product in created})
 
-        # The API provides a complete position set per product.  Removing those
-        # child rows once and inserting their replacement in bulk avoids stale
-        # positions while keeping the number of SQL operations low.
-        existing.position_ids.unlink()
-        self._create_midocean_print_positions(product_sources, products_by_code, techniques)
+        self._sync_midocean_print_positions(
+            product_sources, products_by_code, techniques,
+        )
         return len(product_sources) + len(techniques)
 
     def _upsert_midocean_print_techniques(self, descriptions, product_sources, vendor_id):
@@ -131,62 +135,172 @@ class VendorApi(models.Model):
             'print_template_url': source.get('print_template'),
         }
 
-    def _create_midocean_print_positions(self, product_sources, products_by_code, techniques):
-        position_values, position_sources = [], []
+    def _sync_midocean_print_positions(
+        self, product_sources, products_by_code, techniques,
+    ):
+        """Upsert positions and their children without changing existing IDs."""
+        print_product_ids = [product.id for product in products_by_code.values()]
+        position_model = self.env['midocean.print.position'].with_context(
+            active_test=False,
+        )
+        existing_positions = position_model.search([
+            ('print_product_id', 'in', print_product_ids),
+        ])
+        positions_by_key = {
+            (position.print_product_id.id, position.position_id): position
+            for position in existing_positions
+        }
+        position_values_by_key = {}
         for master_code, product_source in product_sources.items():
             for source in product_source.get('printing_positions') or []:
                 if not source.get('position_id'):
                     continue
-                position_values.append({
+                print_product = products_by_code[master_code]
+                key = (print_product.id, source['position_id'])
+                position_values_by_key[key] = {
                     'print_product_id': products_by_code[master_code].id,
                     'position_id': source['position_id'],
+                    'active': True,
                     'print_size_unit': source.get('print_size_unit'),
-                    'max_print_size_height': self._number(source.get('max_print_size_height')),
-                    'max_print_size_width': self._number(source.get('max_print_size_width')),
-                    'rotation': self._number(source.get('rotation')),
+                    'max_print_size_height': self._parse_number(
+                        source.get('max_print_size_height'),
+                    ),
+                    'max_print_size_width': self._parse_number(
+                        source.get('max_print_size_width'),
+                    ),
+                    'rotation': self._parse_number(source.get('rotation')),
                     'position_type': source.get('print_position_type'),
                     'category': source.get('category'),
                     'points': source.get('points') or [],
-                })
-                position_sources.append(source)
-        positions = self.env['midocean.print.position'].create(position_values) if position_values else self.env['midocean.print.position']
-        technique_values, image_values = [], []
-        for position, source in zip(positions, position_sources):
-            for technique_source in source.get('printing_techniques') or []:
-                technique = techniques.get(technique_source.get('id'))
-                if technique:
-                    technique_values.append({
+                }
+        # The endpoint supplies the full position set for each returned product.
+        # Deactivation preserves history and document references for rows that
+        # are no longer supplied by MiDocean.
+        stale_positions = existing_positions.filtered(
+            lambda position: (
+                position.print_product_id.id, position.position_id,
+            ) not in position_values_by_key,
+        )
+        if stale_positions:
+            stale_positions.write({'active': False})
+        new_position_values = []
+        for key, values in position_values_by_key.items():
+            position = positions_by_key.get(key)
+            if position:
+                position.write(values)
+            else:
+                new_position_values.append(values)
+        if new_position_values:
+            created_positions = position_model.create(new_position_values)
+            positions_by_key.update({
+                (position.print_product_id.id, position.position_id): position
+                for position in created_positions
+            })
+        self._sync_midocean_print_position_children(
+            product_sources, products_by_code, positions_by_key, techniques,
+        )
+
+    def _sync_midocean_print_position_children(
+        self, product_sources, products_by_code, positions_by_key, techniques,
+    ):
+        """Upsert allowed techniques and preview images for each print position."""
+        positions = self.env['midocean.print.position'].browse([
+            positions_by_key[(products_by_code[master_code].id, source['position_id'])].id
+            for master_code, product_source in product_sources.items()
+            for source in product_source.get('printing_positions') or []
+            if source.get('position_id')
+        ])
+        technique_relation_model = self.env['midocean.print.position.technique']
+        image_model = self.env['midocean.print.position.image']
+        existing_techniques = technique_relation_model.with_context(
+            active_test=False,
+        ).search([('position_id', 'in', positions.ids)])
+        existing_images = image_model.with_context(active_test=False).search([
+            ('position_id', 'in', positions.ids),
+        ])
+        relations_by_key = {
+            (relation.position_id.id, relation.technique_id.id): relation
+            for relation in existing_techniques
+        }
+        images_by_key = {
+            (image.position_id.id, image.variant_color): image
+            for image in existing_images
+        }
+        new_relations, new_images = [], []
+        source_relation_keys, source_image_keys = set(), set()
+        for master_code, product_source in product_sources.items():
+            print_product = products_by_code[master_code]
+            for source in product_source.get('printing_positions') or []:
+                if not source.get('position_id'):
+                    continue
+                position = positions_by_key[(print_product.id, source['position_id'])]
+                for technique_source in source.get('printing_techniques') or []:
+                    technique = techniques.get(technique_source.get('id'))
+                    if not technique:
+                        continue
+                    source_relation_keys.add((position.id, technique.id))
+                    values = {
                         'position_id': position.id,
                         'technique_id': technique.id,
+                        'active': True,
                         'is_default': bool(technique_source.get('default')),
                         'max_colours': int(technique_source.get('max_colours') or 0),
-                    })
-            image_values.extend({
-                'position_id': position.id,
-                'variant_color': image.get('variant_color'),
-                'blank_url': image.get('print_position_image_blank'),
-                'with_area_url': image.get('print_position_image_with_area'),
-            } for image in source.get('images') or [])
-        if technique_values:
-            self.env['midocean.print.position.technique'].create(technique_values)
-        if image_values:
-            self.env['midocean.print.position.image'].create(image_values)
+                    }
+                    relation = relations_by_key.get((position.id, technique.id))
+                    if relation:
+                        relation.write(values)
+                    else:
+                        new_relations.append(values)
+                for image_source in source.get('images') or []:
+                    key = (position.id, image_source.get('variant_color'))
+                    source_image_keys.add(key)
+                    values = {
+                        'position_id': position.id,
+                        'variant_color': image_source.get('variant_color'),
+                        'active': True,
+                        'blank_url': image_source.get('print_position_image_blank'),
+                        'with_area_url': image_source.get('print_position_image_with_area'),
+                    }
+                    image = images_by_key.get(key)
+                    if image:
+                        image.write(values)
+                    else:
+                        new_images.append(values)
+        stale_relations = existing_techniques.filtered(
+            lambda relation: (
+                relation.position_id.id, relation.technique_id.id,
+            ) not in source_relation_keys,
+        )
+        stale_images = existing_images.filtered(
+            lambda image: (image.position_id.id, image.variant_color)
+            not in source_image_keys,
+        )
+        if stale_relations:
+            stale_relations.write({'active': False})
+        if stale_images:
+            stale_images.write({'active': False})
+        if new_relations:
+            technique_relation_model.create(new_relations)
+        if new_images:
+            image_model.create(new_images)
 
     def _import_midocean_print_pricelist(self, payload):
         """Enrich shared techniques with the vendor's current pricing data."""
         pricelist = self._midocean_print_pricelist(payload)
-        pricelist.manipulation_ids.unlink()
-        self.env['midocean.print.manipulation'].create([{
-            'pricelist_id': pricelist.id,
-            'code': source['code'],
-            'description': source.get('description'),
-            'price': self._number(source.get('price')),
-        } for source in payload.get('print_manipulations') or [] if source.get('code')])
+        self._sync_midocean_print_manipulations(
+            pricelist, payload.get('print_manipulations') or [],
+        )
         self._sync_midocean_print_technique_prices(pricelist, payload.get('print_techniques') or [])
-        return 1 + len(payload.get('print_manipulations') or []) + len(payload.get('print_techniques') or [])
+        return (
+            1
+            + len(payload.get('print_manipulations') or [])
+            + len(payload.get('print_techniques') or [])
+        )
 
     def _midocean_print_pricelist(self, payload):
-        currency = self.env['res.currency'].search([('name', '=', payload.get('currency'))], limit=1)
+        currency = self.env['res.currency'].search(
+            [('name', '=', payload.get('currency'))], limit=1,
+        )
         values = {
             'vendor_id': self.external_vendor_id.id,
             'currency_id': currency.id,
@@ -201,12 +315,50 @@ class VendorApi(models.Model):
             pricelist = model.create(values)
         return pricelist
 
+    def _sync_midocean_print_manipulations(self, pricelist, sources):
+        """Upsert manipulation charges and retain rows used by past documents."""
+        sources_by_code = {source['code']: source for source in sources if source.get('code')}
+        manipulation_model = self.env['midocean.print.manipulation'].with_context(
+            active_test=False,
+        )
+        existing = manipulation_model.search([
+            ('pricelist_id', '=', pricelist.id),
+        ])
+        manipulations_by_code = {
+            manipulation.code: manipulation for manipulation in existing
+        }
+        new_values = []
+        for code, source in sources_by_code.items():
+            values = {
+                'pricelist_id': pricelist.id,
+                'code': code,
+                'active': True,
+                'description': source.get('description'),
+                'price': self._parse_number(source.get('price')),
+            }
+            manipulation = manipulations_by_code.get(code)
+            if manipulation:
+                manipulation.write(values)
+            else:
+                new_values.append(values)
+        stale_manipulations = existing.filtered(
+            lambda manipulation: manipulation.code not in sources_by_code,
+        )
+        if stale_manipulations:
+            stale_manipulations.write({'active': False})
+        if new_values:
+            manipulation_model.create(new_values)
+
     def _sync_midocean_print_technique_prices(self, pricelist, sources):
         """Upsert technique prices and bulk-replace their nested cost scales."""
         sources_by_code = {source['id']: source for source in sources if source.get('id')}
-        previous_techniques = pricelist.technique_ids
-        previous_techniques.variable_cost_ids.unlink()
-        stale_techniques = previous_techniques.filtered(lambda technique: technique.code not in sources_by_code)
+        previous_techniques = pricelist.with_context(active_test=False).technique_ids
+        previous_variable_costs = previous_techniques.variable_cost_ids.with_context(
+            active_test=False,
+        )
+        stale_techniques = previous_techniques.filtered(
+            lambda technique: technique.code not in sources_by_code,
+        )
         if stale_techniques:
             stale_techniques.write({
                 'pricelist_id': False,
@@ -234,27 +386,115 @@ class VendorApi(models.Model):
                 'pricelist_id': pricelist.id,
                 'pricing_description': source.get('description'),
                 'pricing_type': source.get('pricing_type'),
-                'setup': self._number(source.get('setup')),
-                'setup_repeat': self._number(source.get('setup_repeat')),
-                'next_colour_cost_indicator': str(source.get('next_colour_cost_indicator')).lower() == 'true',
+                'setup': self._parse_number(source.get('setup')),
+                'setup_repeat': self._parse_number(source.get('setup_repeat')),
+                'next_colour_cost_indicator': (
+                    str(source.get('next_colour_cost_indicator')).lower() == 'true'
+                ),
             })
-        variable_values, variable_sources = [], []
+        variable_cost_model = self.env['midocean.print.variable.cost'].with_context(
+            active_test=False,
+        )
+        existing_variable_costs = variable_cost_model.search([
+            ('technique_id', 'in', [
+                technique.id for technique in techniques_by_code.values()
+            ]),
+        ])
+        variable_costs_by_key = {
+            (cost.technique_id.id, cost.source_key): cost
+            for cost in existing_variable_costs
+        }
+        new_variable_values, variable_sources = [], []
         for code, source in sources_by_code.items():
             technique = techniques_by_code[code]
             for variable_source in source.get('var_costs') or []:
-                variable_values.append({
+                source_key = self._midocean_variable_cost_key(variable_source)
+                values = {
                     'technique_id': technique.id,
+                    'active': True,
+                    'source_key': source_key,
                     'range_id': variable_source.get('range_id'),
-                    'area_from': self._number(variable_source.get('area_from')),
-                    'area_to': self._number(variable_source.get('area_to')),
-                })
-                variable_sources.append(variable_source)
-        variables = self.env['midocean.print.variable.cost'].create(variable_values) if variable_values else self.env['midocean.print.variable.cost']
-        scale_values = [{
-            'variable_cost_id': variable.id,
-            'minimum_quantity': self._number(scale.get('minimum_quantity')),
-            'price': self._number(scale.get('price')),
-            'next_price': self._number(scale.get('next_price')),
-        } for variable, source in zip(variables, variable_sources) for scale in source.get('scales') or []]
-        if scale_values:
-            self.env['midocean.print.price.scale'].create(scale_values)
+                    'area_from': self._parse_number(variable_source.get('area_from')),
+                    'area_to': self._parse_number(variable_source.get('area_to')),
+                }
+                variable_cost = variable_costs_by_key.get((technique.id, source_key))
+                if variable_cost:
+                    variable_cost.write(values)
+                else:
+                    new_variable_values.append(values)
+                variable_sources.append((technique.id, source_key, variable_source))
+        current_variable_keys = {
+            (technique_id, source_key)
+            for technique_id, source_key, _source in variable_sources
+        }
+        stale_variable_costs = previous_variable_costs.filtered(
+            lambda cost: (cost.technique_id.id, cost.source_key)
+            not in current_variable_keys,
+        )
+        if stale_variable_costs:
+            stale_variable_costs.write({'active': False})
+        if new_variable_values:
+            created_costs = variable_cost_model.create(new_variable_values)
+            variable_costs_by_key.update({
+                (cost.technique_id.id, cost.source_key): cost for cost in created_costs
+            })
+        self._sync_midocean_print_price_scales(
+            variable_sources, variable_costs_by_key, previous_variable_costs,
+        )
+
+    def _sync_midocean_print_price_scales(
+        self, variable_sources, costs_by_key, previous_variable_costs,
+    ):
+        """Upsert quantity scales while retaining rows referenced elsewhere."""
+        scale_model = self.env['midocean.print.price.scale'].with_context(
+            active_test=False,
+        )
+        existing_scales = scale_model.search([
+            ('variable_cost_id', 'in', previous_variable_costs.ids),
+        ])
+        scales_by_key = {
+            (scale.variable_cost_id.id, scale.source_key): scale
+            for scale in existing_scales
+        }
+        new_values = []
+        current_scale_keys = set()
+        for technique_id, cost_key, source in variable_sources:
+            variable_cost = costs_by_key[(technique_id, cost_key)]
+            for scale_source in source.get('scales') or []:
+                source_key = self._midocean_price_scale_key(scale_source)
+                current_scale_keys.add((variable_cost.id, source_key))
+                values = {
+                    'variable_cost_id': variable_cost.id,
+                    'active': True,
+                    'source_key': source_key,
+                    'minimum_quantity': self._parse_number(
+                        scale_source.get('minimum_quantity'),
+                    ),
+                    'price': self._parse_number(scale_source.get('price')),
+                    'next_price': self._parse_number(scale_source.get('next_price')),
+                }
+                scale = scales_by_key.get((variable_cost.id, source_key))
+                if scale:
+                    scale.write(values)
+                else:
+                    new_values.append(values)
+        stale_scales = existing_scales.filtered(
+            lambda scale: (scale.variable_cost_id.id, scale.source_key)
+            not in current_scale_keys,
+        )
+        if stale_scales:
+            stale_scales.write({'active': False})
+        if new_values:
+            scale_model.create(new_values)
+
+    def _midocean_variable_cost_key(self, source):
+        """Build a stable API key for a variable-cost area."""
+        return '|'.join([
+            source.get('range_id') or '',
+            str(self._parse_number(source.get('area_from'))),
+            str(self._parse_number(source.get('area_to'))),
+        ])
+
+    def _midocean_price_scale_key(self, source):
+        """Build a stable API key for a quantity tier within one cost area."""
+        return str(self._parse_number(source.get('minimum_quantity')))

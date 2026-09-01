@@ -3,3 +3,5 @@ access_external_vendor_system,external.vendor.system,model_external_vendor,base.
 access_vendor_api_system,vendor.api.system,model_vendor_api,base.group_system,1,1,1,1
 access_field_mapping_system,field.mapping.system,model_field_mapping,base.group_system,1,1,1,1
 access_vendor_integration_record_system,vendor.integration.record.system,model_vendor_integration_record,base.group_system,1,1,1,1
+access_vendor_product_asset_system,vendor.product.asset.system,model_vendor_product_asset,base.group_system,1,1,1,1
+access_vendor_product_stock_system,vendor.product.stock.system,model_vendor_product_stock,base.group_system,1,1,1,1

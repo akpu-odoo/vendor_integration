@@ -2,6 +2,8 @@ from odoo import fields, models
 
 
 class VendorProductStock(models.Model):
+    """The latest stock information imported from a vendor endpoint."""
+
     _name = 'vendor.product.stock'
     _description = 'Vendor Product Stock'
     _rec_name = 'sku'

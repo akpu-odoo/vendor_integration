@@ -26,7 +26,7 @@ class PurchaseOrder(models.Model):
         self.ensure_one()
         if not self._midocean_api_enabled():
             raise UserError(self.env._('This purchase order does not use a MiDocean vendor.'))
-        response = self.midocean_vendor_id.authentcation_method_id.request(
+        response = self.midocean_vendor_id.authentication_method_id.request(
             method, path, json=payload, params=params,
             headers={'Accept': 'application/json', 'Content-Type': 'application/json'},
         )

@@ -2,11 +2,15 @@ from odoo import fields, models
 
 
 class VendorIntegrationRecord(models.Model):
+    """Stable link between one source identifier and an imported Odoo record."""
+
     _name = 'vendor.integration.record'
     _description = 'Vendor Integration External Record'
     _rec_name = 'external_id'
 
-    vendor_api_id = fields.Many2one('vendor.api', required=True, ondelete='cascade', index=True)
+    vendor_api_id = fields.Many2one(
+        'vendor.api', required=True, ondelete='cascade', index=True,
+    )
     res_model_id = fields.Many2one('ir.model', index=True)
     external_id = fields.Char(required=True, index=True)
     res_id = fields.Integer(required=True, index=True)
