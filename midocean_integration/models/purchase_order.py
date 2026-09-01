@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -150,3 +150,74 @@ class PurchaseOrder(models.Model):
             lambda order: order._midocean_api_enabled() and not order.midocean_order_number
         ).action_midocean_create_order()
         return result
+
+
+class PurchaseOrderLine(models.Model):
+    _inherit = 'purchase.order.line'
+
+    midocean_printing_required = fields.Boolean(compute='_compute_midocean_print_data')
+    midocean_print_product_id = fields.Many2one(
+        'midocean.print.product', compute='_compute_midocean_print_data',
+    )
+    midocean_available_print_technique_ids = fields.Many2many(
+        'midocean.print.technique', compute='_compute_midocean_print_data',
+    )
+    midocean_position_technique_ids = fields.Many2many(
+        'midocean.print.technique', compute='_compute_midocean_position_techniques',
+    )
+    midocean_print_position_id = fields.Many2one('midocean.print.position', string='Print Position')
+    midocean_print_technique_id = fields.Many2one('midocean.print.technique', string='Print Technique')
+    midocean_printing_cost = fields.Monetary(
+        string='Printing Cost', currency_field='currency_id',
+        help='Reserved for the MiDocean print-price calculation in phase two.',
+    )
+
+    @api.depends('product_id', 'product_id.product_tmpl_id.midocean_printable', 'order_id.midocean_vendor_id')
+    def _compute_midocean_print_data(self):
+        print_product_model = self.env['midocean.print.product']
+        candidates = self.filtered(
+            lambda line: line.order_id.midocean_vendor_id and line.product_id.product_tmpl_id.midocean_master_code
+        )
+        vendor_ids = candidates.order_id.midocean_vendor_id.ids
+        master_codes = candidates.product_id.product_tmpl_id.mapped('midocean_master_code')
+        print_products = print_product_model.search([
+            ('vendor_id', 'in', vendor_ids), ('master_code', 'in', master_codes),
+        ])
+        products_by_vendor_and_code = {
+            (product.vendor_id.id, product.master_code): product for product in print_products
+        }
+        for line in self:
+            template = line.product_id.product_tmpl_id
+            vendor = line.order_id.midocean_vendor_id
+            print_product = products_by_vendor_and_code.get(
+                (vendor.id, template.midocean_master_code), print_product_model.browse(),
+            )
+            line.midocean_printing_required = bool(vendor and template.midocean_printable)
+            line.midocean_print_product_id = print_product
+            line.midocean_available_print_technique_ids = print_product.position_ids.technique_ids.technique_id
+
+    @api.depends('midocean_print_position_id', 'midocean_available_print_technique_ids')
+    def _compute_midocean_position_techniques(self):
+        for line in self:
+            line.midocean_position_technique_ids = (
+                line.midocean_print_position_id.technique_ids.technique_id
+                or line.midocean_available_print_technique_ids
+            )
+
+    @api.onchange('product_id', 'order_id.partner_id')
+    def _onchange_midocean_print_product(self):
+        for line in self:
+            if not line.midocean_printing_required:
+                line.midocean_print_position_id = False
+                line.midocean_print_technique_id = False
+                line.midocean_printing_cost = 0.0
+            elif line.midocean_print_position_id not in line.midocean_print_product_id.position_ids:
+                line.midocean_print_position_id = False
+            elif line.midocean_print_technique_id not in line.midocean_position_technique_ids:
+                line.midocean_print_technique_id = False
+
+    @api.onchange('midocean_print_position_id')
+    def _onchange_midocean_print_position(self):
+        for line in self:
+            if line.midocean_print_technique_id not in line.midocean_position_technique_ids:
+                line.midocean_print_technique_id = False

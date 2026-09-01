@@ -1,3 +1,16 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_vendor_product_asset_system,vendor.product.asset.system,model_vendor_product_asset,base.group_system,1,1,1,1
 access_vendor_product_stock_system,vendor.product.stock.system,model_vendor_product_stock,base.group_system,1,1,1,1
+access_midocean_print_technique_system,midocean.print.technique.system,model_midocean_print_technique,base.group_system,1,1,1,1
+access_midocean_print_product_system,midocean.print.product.system,model_midocean_print_product,base.group_system,1,1,1,1
+access_midocean_print_position_system,midocean.print.position.system,model_midocean_print_position,base.group_system,1,1,1,1
+access_midocean_print_position_technique_system,midocean.print.position.technique.system,model_midocean_print_position_technique,base.group_system,1,1,1,1
+access_midocean_print_position_image_system,midocean.print.position.image.system,model_midocean_print_position_image,base.group_system,1,1,1,1
+access_midocean_print_pricelist_system,midocean.print.pricelist.system,model_midocean_print_pricelist,base.group_system,1,1,1,1
+access_midocean_print_manipulation_system,midocean.print.manipulation.system,model_midocean_print_manipulation,base.group_system,1,1,1,1
+access_midocean_print_variable_cost_system,midocean.print.variable.cost.system,model_midocean_print_variable_cost,base.group_system,1,1,1,1
+access_midocean_print_price_scale_system,midocean.print.price.scale.system,model_midocean_print_price_scale,base.group_system,1,1,1,1
+access_midocean_print_technique_purchase,midocean.print.technique.purchase,model_midocean_print_technique,purchase.group_purchase_user,1,0,0,0
+access_midocean_print_product_purchase,midocean.print.product.purchase,model_midocean_print_product,purchase.group_purchase_user,1,0,0,0
+access_midocean_print_position_purchase,midocean.print.position.purchase,model_midocean_print_position,purchase.group_purchase_user,1,0,0,0
+access_midocean_print_position_technique_purchase,midocean.print.position.technique.purchase,model_midocean_print_position_technique,purchase.group_purchase_user,1,0,0,0

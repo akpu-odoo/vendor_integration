@@ -17,7 +17,6 @@
         "views/vendor_api_views.xml",
         "views/field_mapping_views.xml",
         "views/res_partner_views.xml",
-        "views/vendor_integration_records.xml",
         "views/vendor_integration_menus.xml",
         "data/vendor_integration_cron.xml",
     ],

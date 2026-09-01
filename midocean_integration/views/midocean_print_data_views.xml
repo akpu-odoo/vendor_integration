@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_midocean_print_technique_list" model="ir.ui.view">
+        <field name="name">midocean.print.technique.list</field>
+        <field name="model">midocean.print.technique</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="vendor_id" />
+                <field name="code" />
+                <field name="name" />
+            </list>
+        </field>
+    </record>
+    <record id="view_midocean_print_product_form" model="ir.ui.view">
+        <field name="name">midocean.print.product.form</field>
+        <field name="model">midocean.print.product</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="vendor_id" />
+                            <field name="product_tmpl_id" />
+                            <field name="master_code" />
+                            <field name="master_id" />
+                        </group>
+                        <group>
+                            <field name="print_manipulation_code" />
+                            <field name="print_template_url" widget="url" />
+                            <field name="item_color_numbers" />
+                        </group>
+                    </group>
+                    <field name="position_ids" readonly="1">
+                        <list>
+                            <field name="position_id" />
+                            <field name="max_print_size_width" />
+                            <field name="max_print_size_height" />
+                            <field name="position_type" />
+                            <field name="category" />
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_midocean_print_product_list" model="ir.ui.view">
+        <field name="name">midocean.print.product.list</field>
+        <field name="model">midocean.print.product</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="vendor_id" />
+                <field name="master_code" />
+                <field name="master_id" />
+                <field name="product_tmpl_id" />
+            </list>
+        </field>
+    </record>
+    <record id="action_midocean_print_techniques" model="ir.actions.act_window">
+        <field name="name">MiDocean Print Techniques</field>
+        <field name="res_model">midocean.print.technique</field>
+        <field name="view_mode">list</field>
+    </record>
+    <record id="action_midocean_print_products" model="ir.actions.act_window">
+        <field name="name">MiDocean Print Data</field>
+        <field name="res_model">midocean.print.product</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_midocean_print_products" name="Print Data" parent="menu_midocean_root"
+        action="action_midocean_print_products" sequence="40" groups="base.group_system" />
+    <menuitem id="menu_midocean_print_techniques" name="Print Techniques"
+        parent="menu_midocean_root" action="action_midocean_print_techniques" sequence="50"
+        groups="base.group_system" />
+</odoo>

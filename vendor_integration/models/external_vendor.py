@@ -7,7 +7,6 @@ class ExternalVendor(models.Model):
 
     name = fields.Char(required=True)
     partner_id = fields.Many2one('res.partner')
-    # Keep the original technical name for compatibility with existing records.
     authentcation_method_id = fields.Many2one(
         'base.auth', string='Authentication Method', required=True,
     )

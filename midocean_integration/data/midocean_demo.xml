@@ -26,6 +26,16 @@
         <field name="api_url">/gateway/pricelist/2.0</field><field name="integration_type">midocean</field><field name="api_purpose">supplier_price</field>
         <field name="res_model_id" ref="product.model_product_supplierinfo"/><field name="resolved_path">price</field><field name="external_key_path">sku</field><field name="sync_batch_size">1000</field>
     </record>
+    <record id="api_midocean_print_data" model="vendor.api">
+        <field name="name">MiDocean Print Data</field><field name="external_vendor_id" ref="vendor_midocean"/>
+        <field name="api_url">/gateway/printdata/1.0</field><field name="integration_type">midocean</field><field name="api_purpose">print_data</field>
+        <field name="res_model_id" ref="model_midocean_print_product"/><field name="external_key_path">master_code</field><field name="sync_batch_size">1000</field>
+    </record>
+    <record id="api_midocean_print_pricelist" model="vendor.api">
+        <field name="name">MiDocean Print Pricelist</field><field name="external_vendor_id" ref="vendor_midocean"/>
+        <field name="api_url">/gateway/printpricelist/2.0</field><field name="integration_type">midocean</field><field name="api_purpose">print_pricelist</field>
+        <field name="res_model_id" ref="model_midocean_print_pricelist"/><field name="external_key_path">id</field><field name="sync_batch_size">1000</field>
+    </record>
     <record id="map_catalogue_name" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_catalogue"/><field name="response_key">product_name</field><field name="default_value">mid ocean product</field><field name="odoo_field_id" search="[('model', '=', 'product.template'), ('name', '=', 'name')]"/></record>
     <record id="map_catalogue_description" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_catalogue"/><field name="response_key">long_description</field><field name="odoo_field_id" search="[('model', '=', 'product.template'), ('name', '=', 'description_sale')]"/></record>
     <record id="map_catalogue_master_id" model="field.mapping"><field name="vendor_api_id" ref="api_midocean_catalogue"/><field name="response_key">master_id</field><field name="odoo_field_id" search="[('model', '=', 'product.template'), ('name', '=', 'midocean_master_id')]"/></record>

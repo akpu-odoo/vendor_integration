@@ -4,7 +4,8 @@
     <menuitem id="menu_external_vendor" name="External Vendors" parent="menu_vendor_integration_root" action="action_external_vendor" sequence="10" groups="base.group_system"/>
     <menuitem id="menu_vendor_api" name="Vendor APIs" parent="menu_vendor_integration_root" action="action_vendor_api" sequence="20" groups="base.group_system"/>
     <menuitem id="menu_field_mapping" name="Field Mappings" parent="menu_vendor_integration_root" action="action_field_mapping" sequence="30" groups="base.group_system"/>
-    <menuitem id="menu_vendor_records" name="All Vendor records" parent="menu_vendor_integration_root" action="action_vendor_integration_records"/>
+    <!-- Kept inactive on upgrades so the obsolete technical menu disappears. -->
+    <menuitem id="menu_vendor_records" name="All Vendor records" parent="menu_vendor_integration_root" active="False"/>
     <menuitem id="menu_base_auth" name="Auth Connections" parent="menu_vendor_integration_root" action="base_auth.action_base_auth" groups="base.group_system" sequence="50"/>
 
 </odoo>

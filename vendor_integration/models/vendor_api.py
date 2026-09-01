@@ -28,7 +28,8 @@ class VendorApi(models.Model):
     ], default='generic', required=True, string='Vendor Type')
     api_purpose = fields.Selection([
         ('catalogue', 'Catalogue'), ('stock', 'Stock'),
-        ('supplier_price', 'Supplier Price'), ('generic', 'Generic'),
+        ('supplier_price', 'Supplier Price'), ('print_data', 'Print Data'),
+        ('print_pricelist', 'Print Pricelist'), ('generic', 'Generic'),
     ], default='generic', required=True, string='Purpose')
     res_model_id = fields.Many2one('ir.model', string='Save Records In')
     resolved_path = fields.Char(

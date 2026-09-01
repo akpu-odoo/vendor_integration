@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Update existing installations too; the original demo file is noupdate. -->
+    <record id="api_midocean_print_pricelist" model="vendor.api">
+        <field name="api_url">/gateway/printpricelist/2.0</field>
+    </record>
+</odoo>
