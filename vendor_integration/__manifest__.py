@@ -1,6 +1,6 @@
 {
     "name": "Multiple Vendor Integration",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "summary": "Configure and synchronize external vendor APIs",
     "description": """
         Configure external vendors, API endpoints, field mappings, and scheduled

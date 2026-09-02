@@ -1,6 +1,6 @@
 {
     'name': 'MiDocean Integration',
-    'version': '19.0.1.0.6',
+    'version': '19.0.1.0.7',
     'author': 'Odoo PS',
     'summary': 'Synchronize MiDocean products, stock, prices, and purchase orders',
     'description': """
@@ -12,6 +12,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/midocean_demo.xml',
+        'data/midocean_api_dependencies.xml',
         'data/midocean_print_api_data.xml',
         'views/product_views.xml',
         'views/purchase_order_views.xml',

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Apply the import chain to existing databases during module upgrades. -->
+    <record id="api_midocean_stock" model="vendor.api">
+        <field name="depends_on_api_ids" eval="[(4, ref('api_midocean_catalogue'))]" />
+    </record>
+    <record id="api_midocean_supplier_price" model="vendor.api">
+        <field name="depends_on_api_ids" eval="[(4, ref('api_midocean_stock'))]" />
+    </record>
+    <record id="api_midocean_print_data" model="vendor.api">
+        <field name="depends_on_api_ids" eval="[(4, ref('api_midocean_supplier_price'))]" />
+    </record>
+    <record id="api_midocean_print_pricelist" model="vendor.api">
+        <field name="depends_on_api_ids" eval="[(4, ref('api_midocean_print_data'))]" />
+    </record>
+</odoo>

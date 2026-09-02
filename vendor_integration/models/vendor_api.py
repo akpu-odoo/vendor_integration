@@ -17,6 +17,14 @@ class VendorApi(models.Model):
 
     name = fields.Char(required=True)
     external_vendor_id = fields.Many2one('external.vendor', required=True, ondelete='cascade')
+    depends_on_api_ids = fields.Many2many(
+        'vendor.api',
+        'vendor_api_dependency_rel',
+        'api_id',
+        'depends_on_api_id',
+        string='Prerequisite APIs',
+        help='These APIs must finish successfully before this API can synchronize.',
+    )
     api_url = fields.Char(required=True, string='Endpoint')
     api_method = fields.Selection([('get', 'GET'), ('post', 'POST')], default='get', required=True)
     integration_type = fields.Selection([
@@ -50,6 +58,13 @@ class VendorApi(models.Model):
     sync_payload = fields.Json(readonly=True, copy=False, string='Pending Sync Payload')
     next_sync_on = fields.Datetime()
     last_sync_on = fields.Datetime(readonly=True)
+    last_successful_sync_on = fields.Datetime(readonly=True)
+    last_sync_state = fields.Selection([
+        ('never', 'Never Run'),
+        ('running', 'In Progress'),
+        ('success', 'Successful'),
+        ('failed', 'Failed'),
+    ], default='never', readonly=True)
     last_sync_message = fields.Char(readonly=True)
     last_test_message = fields.Char(readonly=True)
     last_tested_on = fields.Datetime(readonly=True)
@@ -60,6 +75,46 @@ class VendorApi(models.Model):
         for api in self:
             if api.sync_interval_hours <= 0 or api.sync_batch_size <= 0:
                 raise ValidationError(self.env._('Sync interval and batch size must be greater than zero.'))
+
+    @api.constrains('depends_on_api_ids', 'external_vendor_id')
+    def _check_api_dependencies(self):
+        """Keep API dependency chains valid and confined to one supplier."""
+        for api in self:
+            dependencies = api.depends_on_api_ids
+            if api in dependencies:
+                raise ValidationError(self.env._('An API cannot depend on itself.'))
+            if any(dependency.external_vendor_id != api.external_vendor_id for dependency in dependencies):
+                raise ValidationError(self.env._(
+                    'An API can only depend on APIs from the same vendor.',
+                ))
+            if any(api._depends_on(dependency, api) for dependency in dependencies):
+                raise ValidationError(self.env._('API dependencies cannot contain a cycle.'))
+
+    def _depends_on(self, api, target, visited=None):
+        """Return whether ``api`` has ``target`` anywhere in its dependencies."""
+        visited = visited or set()
+        if api.id in visited:
+            return False
+        if api == target:
+            return True
+        visited.add(api.id)
+        return any(self._depends_on(dependency, target, visited) for dependency in api.depends_on_api_ids)
+
+    def _dependency_block_message(self):
+        """Explain why this API must wait, or return ``False`` when it is ready."""
+        self.ensure_one()
+        incomplete = self.depends_on_api_ids.filtered(
+            lambda dependency: (
+                dependency.sync_cursor
+                or dependency.last_sync_state != 'success'
+            ),
+        )
+        if incomplete:
+            return self.env._(
+                'Waiting for successful completion of: %(apis)s.',
+                apis=', '.join(incomplete.mapped('name')),
+            )
+        return False
 
     def _endpoint_url(self):
         """Return the absolute endpoint URL for this API."""
@@ -230,6 +285,11 @@ class VendorApi(models.Model):
         self.ensure_one()
         custom_result = self._sync_custom_payload()
         if custom_result is not None:
+            now = fields.Datetime.now()
+            self.write({
+                'last_sync_state': 'success',
+                'last_successful_sync_on': now,
+            })
             return custom_result
         # An API commonly returns its complete catalogue in one response.  Keep
         # that response while its batches are being consumed: every continuation
@@ -244,6 +304,7 @@ class VendorApi(models.Model):
         now = fields.Datetime.now()
         values = {
             'last_sync_on': now,
+            'last_sync_state': 'running' if has_more else 'success',
             'next_sync_on': now if has_more else now + timedelta(hours=self.sync_interval_hours),
             'sync_cursor': next_cursor if has_more else 0,
             'last_sync_message': self.env._(
@@ -259,6 +320,7 @@ class VendorApi(models.Model):
                 values['sync_payload'] = payload
         else:
             values['sync_payload'] = False
+            values['last_successful_sync_on'] = now
         self.write(values)
         return records, payload
 
@@ -275,13 +337,22 @@ class VendorApi(models.Model):
     def action_sync_now(self):
         """Synchronize one batch and schedule a continuation when needed."""
         self.ensure_one()
+        blocked_message = self._dependency_block_message()
+        if blocked_message:
+            return self._notification(False, blocked_message)
         try:
             self._sync()
-            if self.sync_cursor:
+            # A completed API may have unblocked a dependent API. Trigger the
+            # scheduler in both cases so manual synchronisation follows the
+            # same dependency chain as the scheduled job.
+            if self.sync_cursor or self.last_sync_state == 'success':
                 self.env.ref('vendor_integration.ir_cron_vendor_api_sync')._trigger()
             return self._notification(True, self.last_sync_message)
         except UserError as error:
-            self.write({'last_sync_message': str(error)})
+            self.write({
+                'last_sync_message': str(error),
+                'last_sync_state': 'failed',
+            })
             return self._notification(False, str(error))
 
     @api.model
@@ -301,16 +372,45 @@ class VendorApi(models.Model):
             '|', ('next_sync_on', '=', False), ('next_sync_on', '<=', now),
         ])
         has_pending_batches = False
-        for api in due_apis:
+        for api in self._order_by_dependencies(due_apis):
+            blocked_message = api._dependency_block_message()
+            if blocked_message:
+                _logger.info('Vendor API sync skipped for %s: %s', api.display_name, blocked_message)
+                continue
             try:
                 api._sync()
                 has_pending_batches |= bool(api.sync_cursor)
             except Exception:
                 _logger.exception('Vendor API sync failed for %s', api.display_name)
-                api.write({'next_sync_on': now + timedelta(hours=api.sync_interval_hours)})
+                api.write({
+                    'last_sync_state': 'failed',
+                    'next_sync_on': now + timedelta(hours=api.sync_interval_hours),
+                })
 
         if has_pending_batches:
             self.env.ref('vendor_integration.ir_cron_vendor_api_sync')._trigger()
+
+    @api.model
+    def _order_by_dependencies(self, apis):
+        """Return APIs in dependency order without relying on database ordering.
+
+        Only dependencies in the due set affect ordering. Dependencies that are
+        not due have already completed successfully and do not need to run.
+        """
+        remaining = {api.id: api for api in apis}
+        ordered = self.browse()
+        while remaining:
+            ready = [
+                api for api in remaining.values()
+                if not any(dependency.id in remaining for dependency in api.depends_on_api_ids)
+            ]
+            # Cycles are prevented by the constraint. This fallback keeps cron
+            # processing deterministic if legacy data contains an invalid cycle.
+            ready = ready or [remaining[min(remaining)]]
+            for api in sorted(ready, key=lambda item: (item.name, item.id)):
+                ordered |= api
+                remaining.pop(api.id, None)
+        return ordered
 
     def _notification(self, success, message):
         """Build a standard Odoo notification action."""

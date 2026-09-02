@@ -10,6 +10,7 @@
                 <field name="integration_type" />
                 <field name="api_purpose" />
                 <field name="res_model_id" />
+                <field name="last_sync_state" />
                 <field name="last_sync_on" />
             </list>
         </field>
@@ -38,6 +39,7 @@
                             <field name="api_url" placeholder="/products" />
                             <field name="integration_type" />
                             <field name="api_purpose" />
+                            <field name="depends_on_api_ids" widget="many2many_tags" />
                         </group>
                         <group string="Records to Save">
                             <field name="res_model_id" />
@@ -54,6 +56,8 @@
                     </group>
                     <group string="Last Run" invisible="not last_sync_on">
                         <field name="last_sync_on" />
+                        <field name="last_successful_sync_on" />
+                        <field name="last_sync_state" />
                         <field name="last_sync_message" />
                     </group>
                     <group string="Last Test" invisible="not last_tested_on">

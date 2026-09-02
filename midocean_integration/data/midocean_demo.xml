@@ -32,6 +32,7 @@
         <field name="resolved_path">stock</field>
         <field name="external_key_path">sku</field>
         <field name="sync_batch_size">10000</field>
+        <field name="depends_on_api_ids" eval="[(4, ref('api_midocean_catalogue'))]" />
     </record>
     <record id="api_midocean_supplier_price" model="vendor.api">
         <field name="name">MiDocean Supplier Price</field>
@@ -43,6 +44,7 @@
         <field name="resolved_path">price</field>
         <field name="external_key_path">sku</field>
         <field name="sync_batch_size">1000</field>
+        <field name="depends_on_api_ids" eval="[(4, ref('api_midocean_catalogue'))]" />
     </record>
     <record id="api_midocean_print_data" model="vendor.api">
         <field name="name">MiDocean Print Data</field>
@@ -53,6 +55,7 @@
         <field name="res_model_id" ref="model_midocean_print_product" />
         <field name="external_key_path">master_code</field>
         <field name="sync_batch_size">1000</field>
+        <field name="depends_on_api_ids" eval="[(4, ref('api_midocean_catalogue'))]" />
     </record>
     <record id="api_midocean_print_pricelist" model="vendor.api">
         <field name="name">MiDocean Print Pricelist</field>
@@ -63,6 +66,7 @@
         <field name="res_model_id" ref="model_midocean_print_pricelist" />
         <field name="external_key_path">id</field>
         <field name="sync_batch_size">1000</field>
+        <field name="depends_on_api_ids" eval="[(4, ref('api_midocean_print_data'))]" />
     </record>
     <record id="map_catalogue_name" model="field.mapping">
         <field name="vendor_api_id" ref="api_midocean_catalogue" />
