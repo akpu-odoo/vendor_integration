@@ -11,6 +11,10 @@ class PurchaseOrder(models.Model):
         [('normal', 'Normal'), ('sample', 'Sample')],
         default='normal',
     )
+    midocean_repeat_order = fields.Boolean(
+        string='Repeat Print Order',
+        help='Use MiDocean repeat setup prices for printed order lines.',
+    )
     midocean_response = fields.Json(copy=False, readonly=True)
     midocean_proof_line_id = fields.Char(copy=False)
     midocean_rejection_code = fields.Integer(default=3)
@@ -40,8 +44,13 @@ class PurchaseOrder(models.Model):
         self.ensure_one()
         address = self.dest_address_id or self.company_id.partner_id
         lines = self.order_line.filtered(lambda line: not line.display_type and line.product_id)
-        if not lines or any(not line.product_id.default_code for line in lines):
+        if not lines:
+            raise UserError(self.env._('Add at least one product line before sending the order.'))
+        is_print_order = bool(lines.mapped('midocean_print_configuration_ids'))
+        if not is_print_order and any(not line.product_id.default_code for line in lines):
             raise UserError(self.env._('Every MiDocean order line needs a product with an internal reference (SKU).'))
+        if is_print_order:
+            self._validate_midocean_print_order(lines)
         return {
             'order_header': {
                 'preferred_shipping_date': (
@@ -64,20 +73,31 @@ class PurchaseOrder(models.Model):
                     'phone': address.phone or '',
                 },
                 'po_number': self.name,
-                'timestamp': fields.Datetime.to_string(fields.Datetime.now()),
+                'timestamp': fields.Datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
                 'contact_name': self.user_id.name,
-                'order_type': 'SAMPLE' if self.midocean_order_type == 'sample' else 'NORMAL',
+                'order_type': (
+                    'PRINT' if is_print_order
+                    else 'SAMPLE' if self.midocean_order_type == 'sample'
+                    else 'NORMAL'
+                ),
             },
             'order_lines': [
-                {
-                    'order_line_id': str(line.id),
-                    'sku': line.product_id.default_code,
-                    'quantity': str(line.product_qty),
-                    'expected_price': str(line.price_unit),
-                }
+                line._midocean_print_order_line_payload()
+                if is_print_order else line._midocean_regular_order_line_payload()
                 for line in lines
             ],
         }
+
+    def _validate_midocean_print_order(self, lines):
+        """Ensure one request never mixes MiDocean print and regular lines."""
+        if self.midocean_order_type == 'sample':
+            raise UserError(self.env._('Sample orders cannot contain printing.'))
+        if any(not line.midocean_print_configuration_ids for line in lines):
+            raise UserError(self.env._(
+                'A MiDocean print order cannot contain unprinted order lines.',
+            ))
+        if any(not line.midocean_printing_required for line in lines):
+            raise UserError(self.env._('Every line in a print order must use a printable MiDocean product.'))
 
     def _midocean_number(self, data):
         """Find the returned MiDocean order number in a nested response."""
@@ -159,18 +179,47 @@ class PurchaseOrderLine(models.Model):
     midocean_print_product_id = fields.Many2one(
         'midocean.print.product', compute='_compute_midocean_print_data',
     )
-    midocean_available_print_technique_ids = fields.Many2many(
-        'midocean.print.technique', compute='_compute_midocean_print_data',
+    midocean_print_configuration_ids = fields.One2many(
+        'midocean.purchase.line.print', 'purchase_line_id', string='Print Configurations',
     )
-    midocean_position_technique_ids = fields.Many2many(
-        'midocean.print.technique', compute='_compute_midocean_position_techniques',
-    )
-    midocean_print_position_id = fields.Many2one('midocean.print.position', string='Print Position')
-    midocean_print_technique_id = fields.Many2one('midocean.print.technique', string='Print Technique')
     midocean_printing_cost = fields.Monetary(
-        string='Printing Cost', currency_field='currency_id',
-        help='Reserved for the MiDocean print-price calculation in phase two.',
+        string='Printing Cost', compute='_compute_midocean_printing_cost',
+        currency_field='currency_id',
     )
+
+    @api.depends(
+        'product_qty', 'midocean_print_configuration_ids.setup_cost',
+        'midocean_print_configuration_ids.printing_cost',
+    )
+    def _compute_midocean_printing_cost(self):
+        printable_lines = self.filtered('midocean_print_configuration_ids')
+        vendor_ids = printable_lines.order_id.midocean_vendor_id.ids
+        manipulation_codes = printable_lines.midocean_print_product_id.mapped(
+            'print_manipulation_code',
+        )
+        manipulations = self.env['midocean.print.manipulation'].search([
+            ('pricelist_id.vendor_id', 'in', vendor_ids),
+            ('code', 'in', manipulation_codes),
+        ])
+        manipulations_by_vendor_and_code = {
+            (manipulation.pricelist_id.vendor_id.id, manipulation.code): manipulation
+            for manipulation in manipulations
+        }
+        for line in self:
+            configurations = line.midocean_print_configuration_ids
+            if not configurations:
+                line.midocean_printing_cost = 0.0
+                continue
+            manipulation = manipulations_by_vendor_and_code.get((
+                line.order_id.midocean_vendor_id.id,
+                line.midocean_print_product_id.print_manipulation_code,
+            ))
+            handling_cost = manipulation.price * line.product_qty if manipulation else 0.0
+            line.midocean_printing_cost = (
+                sum(configurations.mapped('setup_cost'))
+                + sum(configurations.mapped('printing_cost'))
+                + handling_cost
+            )
 
     @api.depends('product_id', 'product_id.product_tmpl_id.midocean_printable', 'order_id.midocean_vendor_id')
     def _compute_midocean_print_data(self):
@@ -194,30 +243,85 @@ class PurchaseOrderLine(models.Model):
             )
             line.midocean_printing_required = bool(vendor and template.midocean_printable)
             line.midocean_print_product_id = print_product
-            line.midocean_available_print_technique_ids = print_product.position_ids.technique_ids.technique_id
-
-    @api.depends('midocean_print_position_id', 'midocean_available_print_technique_ids')
-    def _compute_midocean_position_techniques(self):
-        for line in self:
-            line.midocean_position_technique_ids = (
-                line.midocean_print_position_id.technique_ids.technique_id
-                or line.midocean_available_print_technique_ids
-            )
 
     @api.onchange('product_id', 'order_id.partner_id')
     def _onchange_midocean_print_product(self):
         for line in self:
             if not line.midocean_printing_required:
-                line.midocean_print_position_id = False
-                line.midocean_print_technique_id = False
                 line.midocean_printing_cost = 0.0
-            elif line.midocean_print_position_id not in line.midocean_print_product_id.position_ids:
-                line.midocean_print_position_id = False
-            elif line.midocean_print_technique_id not in line.midocean_position_technique_ids:
-                line.midocean_print_technique_id = False
 
-    @api.onchange('midocean_print_position_id')
-    def _onchange_midocean_print_position(self):
-        for line in self:
-            if line.midocean_print_technique_id not in line.midocean_position_technique_ids:
-                line.midocean_print_technique_id = False
+    def action_midocean_open_print_configurations(self):
+        """Open the modal used to configure every print position on this line."""
+        self.ensure_one()
+        if not self.midocean_printing_required:
+            raise UserError(self.env._('Only printable MiDocean products can be configured for printing.'))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.env._('Print Configuration'),
+            'res_model': 'midocean.purchase.line.print',
+            'view_mode': 'list,form',
+            'target': 'new',
+            'domain': [('purchase_line_id', '=', self.id)],
+            'context': {'default_purchase_line_id': self.id},
+        }
+
+    def _midocean_regular_order_line_payload(self):
+        """Build one NORMAL or SAMPLE MiDocean order line."""
+        self.ensure_one()
+        values = {
+            'order_line_id': str(self.id),
+            'sku': self.product_id.default_code,
+            'quantity': str(self.product_qty),
+            'expected_price': str(self.price_unit),
+        }
+        if self.product_id.midocean_variant_id:
+            values['variant_id'] = self.product_id.midocean_variant_id
+        return values
+
+    def _midocean_print_order_line_payload(self):
+        """Build one PRINT MiDocean order line from stored print configuration."""
+        self.ensure_one()
+        template = self.product_id.product_tmpl_id
+        if not template.midocean_master_code or not self.product_id.midocean_color_code:
+            raise UserError(self.env._(
+                'Printed MiDocean lines require a master code and variant colour code.',
+            ))
+        print_item = {
+            'item_color_number': self.product_id.midocean_color_code,
+            'quantity': str(self.product_qty),
+        }
+        size = self._midocean_textile_size()
+        is_textile = 'textile' in (template.midocean_type_of_products or '').lower()
+        if is_textile and not size:
+            raise UserError(self.env._('Printed textile products require a Size attribute value.'))
+        if size:
+            print_item['item_size'] = size
+        return {
+            'order_line_id': str(self.id),
+            'master_code': template.midocean_master_code,
+            'quantity': str(self.product_qty),
+            'expected_price': '0',
+            'printing_positions': [
+                {
+                    'id': configuration.position_id.position_id,
+                    'print_size_height': str(configuration.print_size_height),
+                    'print_size_width': str(configuration.print_size_width),
+                    'printing_technique_id': configuration.technique_id.code,
+                    'number_of_print_colors': str(configuration.colour_count),
+                    'print_artwork_url': configuration.artwork_url,
+                    'print_mockup_url': configuration.mockup_url or '',
+                    'print_instruction': configuration.instruction or '',
+                    'print_colors': [{'color': colour.colour} for colour in configuration.colour_ids],
+                }
+                for configuration in self.midocean_print_configuration_ids
+            ],
+            'print_items': [print_item],
+        }
+
+    def _midocean_textile_size(self):
+        """Return the configured native Size attribute value for textile items."""
+        self.ensure_one()
+        size_value = self.product_id.product_template_attribute_value_ids.filtered(
+            lambda value: value.attribute_id.name == 'Size',
+        )[:1]
+        return size_value.product_attribute_value_id.name if size_value else False

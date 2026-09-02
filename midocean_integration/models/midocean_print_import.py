@@ -37,6 +37,11 @@ class VendorApi(models.Model):
             value = value.replace('.', '')
         return float(value)
 
+    @staticmethod
+    def _parse_boolean(value):
+        """Accept MiDocean's boolean and ``X`` indicator representations."""
+        return str(value).strip().lower() in {'1', 'true', 'yes', 'x'}
+
     def _sync_midocean_print_payload(self):
         """Fetch and persist a complete print response in one transaction."""
         self.ensure_one()
@@ -388,8 +393,8 @@ class VendorApi(models.Model):
                 'pricing_type': source.get('pricing_type'),
                 'setup': self._parse_number(source.get('setup')),
                 'setup_repeat': self._parse_number(source.get('setup_repeat')),
-                'next_colour_cost_indicator': (
-                    str(source.get('next_colour_cost_indicator')).lower() == 'true'
+                'next_colour_cost_indicator': self._parse_boolean(
+                    source.get('next_colour_cost_indicator'),
                 ),
             })
         variable_cost_model = self.env['midocean.print.variable.cost'].with_context(

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_midocean_purchase_line_print_list" model="ir.ui.view">
+        <field name="name">midocean.purchase.line.print.list</field>
+        <field name="model">midocean.purchase.line.print</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle" />
+                <field name="purchase_line_id" column_invisible="True" />
+                <field name="print_product_id" column_invisible="True" />
+                <field name="available_technique_ids" column_invisible="True" />
+                <field name="position_id" domain="[('print_product_id', '=', print_product_id)]" />
+                <field name="technique_id" domain="[('id', 'in', available_technique_ids)]" />
+                <field name="print_size_width" />
+                <field name="print_size_height" />
+                <field name="colour_count" />
+                <field name="setup_cost" readonly="1" />
+                <field name="printing_cost" readonly="1" />
+            </list>
+        </field>
+    </record>
+    <record id="view_midocean_purchase_line_print_form" model="ir.ui.view">
+        <field name="name">midocean.purchase.line.print.form</field>
+        <field name="model">midocean.purchase.line.print</field>
+        <field name="arch" type="xml">
+            <form string="Print Configuration">
+                <sheet>
+                    <group>
+                        <field name="purchase_line_id" readonly="1" />
+                        <field name="print_product_id" invisible="1" />
+                        <field name="available_technique_ids" invisible="1" />
+                        <field name="position_id"
+                            domain="[('print_product_id', '=', print_product_id)]" />
+                        <field name="technique_id" domain="[('id', 'in', available_technique_ids)]" />
+                    </group>
+                    <group string="Artwork">
+                        <field name="print_size_width" />
+                        <field name="print_size_height" />
+                        <field name="colour_count" />
+                        <field name="artwork_url" widget="url" />
+                        <field name="mockup_url" widget="url" />
+                        <field name="instruction" />
+                    </group>
+                    <group string="Calculated Cost">
+                        <field name="setup_cost" readonly="1" />
+                        <field name="printing_cost" readonly="1" />
+                    </group>
+                    <field name="colour_ids">
+                        <list editable="bottom">
+                            <field name="colour" placeholder="PMS 0 C" />
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

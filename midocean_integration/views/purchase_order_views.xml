@@ -23,16 +23,9 @@
                 position="after">
                 <field name="midocean_printing_required" column_invisible="True" />
                 <field name="midocean_print_product_id" column_invisible="True" />
-                <field name="midocean_available_print_technique_ids" column_invisible="True" />
-                <field name="midocean_position_technique_ids" column_invisible="True" />
-                <field name="midocean_print_position_id" optional="show"
-                    invisible="not midocean_printing_required"
-                    domain="[('print_product_id', '=', midocean_print_product_id)]"
-                    options="{'no_create': True, 'no_open': True}" />
-                <field name="midocean_print_technique_id" optional="show"
-                    invisible="not midocean_printing_required"
-                    domain="[('id', 'in', midocean_position_technique_ids)]"
-                    options="{'no_create': True, 'no_open': True}" />
+                <button name="action_midocean_open_print_configurations" type="object"
+                    string="Configure Print" icon="fa-paint-brush"
+                    invisible="not midocean_printing_required" />
                 <field name="midocean_printing_cost" optional="show"
                     invisible="not midocean_printing_required" />
             </xpath>
@@ -41,6 +34,7 @@
                     <group>
                         <group>
                             <field name="midocean_order_type" />
+                            <field name="midocean_repeat_order" />
                             <field name="midocean_order_number" />
                             <field name="midocean_proof_line_id" />
                         </group>
