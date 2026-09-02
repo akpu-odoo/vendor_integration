@@ -306,8 +306,6 @@ class VendorApi(models.Model):
                 api._sync()
                 has_pending_batches |= bool(api.sync_cursor)
             except Exception:
-                # One unavailable endpoint must not prevent the other due APIs
-                # from being synchronized during this cron invocation.
                 _logger.exception('Vendor API sync failed for %s', api.display_name)
                 api.write({'next_sync_on': now + timedelta(hours=api.sync_interval_hours)})
 
